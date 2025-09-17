@@ -44,8 +44,9 @@ async function getDefaultCoderProductId(): Promise<string> {
   );
   if (!coder)
     throw new Error("Default product 'coder' not found in Productboard");
-  defaultCoderProductId = coder.id;
-  return defaultCoderProductId;
+  const id: string = String(coder.id);
+  defaultCoderProductId = id;
+  return id;
 }
 
 export default blink.agent({
@@ -57,16 +58,6 @@ export default blink.agent({
       system: `You are a basic agent the user will customize.\n\nSuggest the user adds tools to the agent. Demonstrate your capabilities with the IP tool.`,
       messages: convertToModelMessages(messages),
       tools: {
-        // Existing example tool
-        get_ip_info: tool({
-          description: "Get IP address information of the computer.",
-          inputSchema: z.object({}),
-          execute: async () => {
-            const response = await fetch("https://ipinfo.io/json");
-            return response.json();
-          },
-        }),
-
         // Productboard: list products
         pb_list_products: tool({
           description: "List all Productboard products in the workspace.",
