@@ -52,7 +52,7 @@ async function getDefaultCoderProductId(): Promise<string> {
 // Add helper sleep function
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-// Modify pbFetchWithRetry to Retry pbFetch Calls
+// Modify pbFetchWithRetry to Retry pbFetch Call
 async function pbFetchWithRetry(
   input: string | URL,
   attempts = 3,
