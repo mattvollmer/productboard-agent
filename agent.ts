@@ -74,38 +74,37 @@ export default blink.agent({
           execute: async () => pbFetch("/feature-statuses"),
         }),
 
-        // Productboard: list features
+        // Productboard: list features (no unsupported query params)
         pb_list_features: tool({
           description:
-            "List features with optional filters. Defaults to product 'coder' when productId is omitted.",
+            "List features with optional client-side filters. Defaults to product 'coder' when productId is omitted.",
           inputSchema: z.object({
             productId: z.string().optional(),
             statusIds: z.array(z.string()).optional(),
-            releaseId: z.string().optional(),
-            updatedSince: z.string().optional(), // ISO8601
+            // server won't accept these as query params; we filter locally on page results
             limit: z.number().int().min(1).max(100).optional(),
             cursor: z.string().optional(),
           }),
-          execute: async ({
-            productId,
-            statusIds,
-            releaseId,
-            updatedSince,
-            limit,
-            cursor,
-          }) => {
-            if (cursor) return pbFetch(cursor);
-            const params = new URLSearchParams();
+          execute: async ({ productId, statusIds, limit, cursor }) => {
+            const resp = await pbFetch(cursor ?? "/features");
+            // Fetch features list from server without query params
+            let items: any[] = Array.isArray(resp?.data) ? resp.data : [];
+            // Optional client-side filtering starts here
             const finalProductId =
               productId ?? (await getDefaultCoderProductId());
-            if (finalProductId) params.set("productId", finalProductId);
-            if (releaseId) params.set("releaseId", releaseId);
-            if (updatedSince) params.set("updatedSince", updatedSince);
-            if (limit) params.set("limit", String(limit));
-            if (statusIds && statusIds.length) {
-              for (const s of statusIds) params.append("statusId", s);
+            if (finalProductId) {
+              items = items.filter(
+                (f: any) => f?.product?.id === finalProductId,
+              );
             }
-            return pbFetch(`/features?${params.toString()}`);
+            if (statusIds && statusIds.length) {
+              const set = new Set(statusIds);
+              items = items.filter(
+                (f: any) => f?.status?.id && set.has(f.status.id),
+              );
+            }
+            if (limit && items.length > limit) items = items.slice(0, limit);
+            return { ...resp, data: items };
           },
         }),
 
