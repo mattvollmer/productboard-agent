@@ -20,7 +20,7 @@ async function pbHeaders(): Promise<HeadersInit> {
   };
 }
 
-async function pbFetch(input: string | URL, init?: RequestInit) {
+async function pbFetch(input: string | URL, init?: any) {
   const url = typeof input === "string" ? input : input.toString();
   const isAbsolute = url.startsWith("http://") || url.startsWith("https://");
   const finalUrl = isAbsolute ? url : `${PB_BASE}${url}`;
@@ -47,6 +47,27 @@ async function getDefaultCoderProductId(): Promise<string> {
   const id: string = String(coder.id);
   defaultCoderProductId = id;
   return id;
+}
+
+// Add helper sleep function
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+// Modify pbFetchWithRetry to Retry pbFetch Calls
+async function pbFetchWithRetry(
+  input: string | URL,
+  attempts = 3,
+  baseDelayMs = 250,
+) {
+  let lastErr: any;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await pbFetch(input);
+    } catch (err) {
+      lastErr = err;
+      if (i < attempts - 1) await sleep(baseDelayMs * Math.pow(2, i));
+    }
+  }
+  throw lastErr;
 }
 
 export default blink.agent({
@@ -98,37 +119,117 @@ Response style
           execute: async () => pbFetch("/feature-statuses"),
         }),
 
-        // Productboard: list features (no unsupported query params)
+        // Productboard: list features (client-side filtering + optional autopagination)
         pb_list_features: tool({
           description:
             "List features with optional client-side filters. Defaults to product 'coder' when productId is omitted.",
           inputSchema: z.object({
             productId: z.string().optional(),
             statusIds: z.array(z.string()).optional(),
-            // server won't accept these as query params; we filter locally on page results
-            limit: z.number().int().min(1).max(100).optional(),
+            statusNames: z.array(z.string()).optional(),
+            limit: z.number().int().min(1).max(1000).optional(),
             cursor: z.string().optional(),
+            autoPaginate: z.boolean().optional(),
+            maxPages: z.number().int().min(1).max(100).optional(),
           }),
-          execute: async ({ productId, statusIds, limit, cursor }) => {
-            const resp = await pbFetch(cursor ?? "/features");
-            // Fetch features list from server without query params
-            let items: any[] = Array.isArray(resp?.data) ? resp.data : [];
-            // Optional client-side filtering starts here
+          execute: async ({
+            productId,
+            statusIds,
+            statusNames,
+            limit,
+            cursor,
+            autoPaginate = true, // Default value
+            maxPages = 20, // Default value
+          }) => {
             const finalProductId =
               productId ?? (await getDefaultCoderProductId());
-            if (finalProductId) {
-              items = items.filter(
-                (f: any) => f?.product?.id === finalProductId,
+
+            // If statusNames are provided, resolve to IDs first
+            let resolvedStatusIds: string[] | undefined = statusIds;
+            if (
+              (!resolvedStatusIds || resolvedStatusIds.length === 0) &&
+              statusNames &&
+              statusNames.length
+            ) {
+              const statusResp = await pbFetch(`/feature-statuses`);
+              const allStatuses: any[] = Array.isArray(statusResp?.data)
+                ? statusResp.data
+                : [];
+              const wanted = new Set(
+                statusNames.map((s: string) => s.toLowerCase()),
               );
+              resolvedStatusIds = allStatuses
+                .filter(
+                  (st: any) =>
+                    st?.name && wanted.has(String(st.name).toLowerCase()),
+                )
+                .map((st: any) => String(st.id));
             }
-            if (statusIds && statusIds.length) {
-              const set = new Set(statusIds);
-              items = items.filter(
-                (f: any) => f?.status?.id && set.has(f.status.id),
-              );
-            }
-            if (limit && items.length > limit) items = items.slice(0, limit);
-            return { ...resp, data: items };
+
+            const matches: any[] = [];
+            let next: string | undefined = cursor;
+            let pages = 0;
+            let lastResp: any | undefined;
+
+            const applyFilters = (arr: any[]) => {
+              let out = arr;
+              if (finalProductId) {
+                out = out.filter((f: any) => f?.product?.id === finalProductId);
+              }
+              if (resolvedStatusIds && resolvedStatusIds.length) {
+                const set = new Set(resolvedStatusIds);
+                out = out.filter(
+                  (f: any) => f?.status?.id && set.has(f.status.id),
+                );
+              }
+              return out;
+            };
+
+            const shouldContinue = () => {
+              if (!autoPaginate) return false;
+              if (limit && matches.length >= limit) return false;
+              if (maxPages && pages >= maxPages) return false;
+              return Boolean(next);
+            };
+
+            // Fetch first page (or provided cursor)
+            do {
+              const resp = await pbFetchWithRetry(next ?? "/features", 3, 250); // Switched to pbFetchWithRetry
+              lastResp = resp;
+              const pageItems: any[] = Array.isArray(resp?.data)
+                ? resp.data
+                : [];
+              const filtered = applyFilters(pageItems);
+              for (const it of filtered) {
+                if (limit && matches.length >= limit) break;
+                matches.push(it);
+              }
+              next = resp?.links?.next;
+              pages += 1;
+            } while (shouldContinue());
+
+            // If no autopagination and no cursor provided, we only returned first page filtered
+            const payload = {
+              ...(lastResp || {}),
+              data: limit ? matches.slice(0, limit) : matches,
+              // If we stopped due to reaching the limit but there is a next page, preserve the cursor
+              links: {
+                ...(lastResp?.links || {}),
+                next: (() => {
+                  if (autoPaginate) {
+                    if (
+                      limit &&
+                      matches.length >= (limit || 0) &&
+                      lastResp?.links?.next
+                    )
+                      return lastResp.links.next;
+                    return lastResp?.links?.next ?? null;
+                  }
+                  return lastResp?.links?.next ?? null;
+                })(),
+              },
+            };
+            return payload;
           },
         }),
 
