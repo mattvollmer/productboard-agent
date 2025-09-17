@@ -5,7 +5,7 @@
   "private": true,
   "dependencies": {
     "ai": "^5.0.45",
-    "blink": "^0.1.22",
+    "blink": "^0.1.25",
     "esbuild": "^0.25.9",
     "zod": "^4.1.9"
   },

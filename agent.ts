@@ -40,7 +40,7 @@ async function getDefaultCoderProductId(): Promise<string> {
   const data = await pbFetch("/products");
   const products = Array.isArray(data?.data) ? data.data : [];
   const coder = products.find(
-    (p: any) => (p?.name || "").toLowerCase() === "coder",
+    (p: any) => (p?.name || "").toLowerCase() === "coder"
   );
   if (!coder)
     throw new Error("Default product 'coder' not found in Productboard");
@@ -56,7 +56,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 async function pbFetchWithRetry(
   input: string | URL,
   attempts = 3,
-  baseDelayMs = 250,
+  baseDelayMs = 250
 ) {
   let lastErr: any;
   for (let i = 0; i < attempts; i++) {
@@ -71,8 +71,6 @@ async function pbFetchWithRetry(
 }
 
 export default blink.agent({
-  displayName: "productboard-agent",
-
   async sendMessages({ messages }) {
     return streamText({
       model: "openai/gpt-5-mini",
@@ -156,12 +154,12 @@ Response style
                 ? statusResp.data
                 : [];
               const wanted = new Set(
-                statusNames.map((s: string) => s.toLowerCase()),
+                statusNames.map((s: string) => s.toLowerCase())
               );
               resolvedStatusIds = allStatuses
                 .filter(
                   (st: any) =>
-                    st?.name && wanted.has(String(st.name).toLowerCase()),
+                    st?.name && wanted.has(String(st.name).toLowerCase())
                 )
                 .map((st: any) => String(st.id));
             }
@@ -174,7 +172,7 @@ Response style
             const applyFilters = async (arr: any[]) => {
               let out = arr;
               const hasProductField = out.some(
-                (f: any) => f && f.product && f.product.id,
+                (f: any) => f && f.product && f.product.id
               );
               if (hasProductField) {
                 const targetProductId =
@@ -183,14 +181,14 @@ Response style
                     (defaultCoderProductId = await getDefaultCoderProductId()));
                 if (targetProductId) {
                   out = out.filter(
-                    (f: any) => f?.product?.id === targetProductId,
+                    (f: any) => f?.product?.id === targetProductId
                   );
                 }
               }
               if (resolvedStatusIds && resolvedStatusIds.length) {
                 const set = new Set(resolvedStatusIds);
                 out = out.filter(
-                  (f: any) => f?.status?.id && set.has(f.status.id),
+                  (f: any) => f?.status?.id && set.has(f.status.id)
                 );
               }
               return out;
@@ -386,7 +384,9 @@ Response style
             const msg =
               lastErr instanceof Error ? lastErr.message : String(lastErr);
             throw new Error(
-              `Failed to list custom fields after attempts: ${tried.join(", ")} -> ${msg}`,
+              `Failed to list custom fields after attempts: ${tried.join(
+                ", "
+              )} -> ${msg}`
             );
           },
         }),
