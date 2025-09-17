@@ -184,6 +184,7 @@ Response style
             let next: string | undefined = cursor;
             let pages = 0;
             let lastResp: any | undefined;
+            let hasError = false;
 
             const applyFilters = async (arr: any[]) => {
               let out = arr;
@@ -211,6 +212,7 @@ Response style
             };
 
             const shouldContinue = () => {
+              if (hasError) return false; // Stop if we hit an error
               if (!autoPaginate) return false;
               if (limit && matches.length >= limit) return false;
               if (maxPages && pages >= maxPages) return false;
@@ -277,24 +279,68 @@ Response style
 
             // Fetch first page (or provided cursor)
             do {
-              const resp = await pbFetchWithRetry(next ?? "/features", 3, 250); // Switched to pbFetchWithRetry
-              lastResp = resp;
-              const pageItems: any[] = Array.isArray(resp?.data)
-                ? resp.data
-                : [];
-              const filtered = await applyFilters(pageItems);
-              for (const it of filtered) {
-                if (limit && matches.length >= limit) break;
-                matches.push(filterFields(it)); // Apply field filtering here
+              try {
+                const resp = await pbFetchWithRetry(
+                  next ?? "/features",
+                  3,
+                  250,
+                );
+                lastResp = resp;
+
+                // Validate response structure
+                if (!resp || typeof resp !== "object") {
+                  hasError = true;
+                  console.warn(
+                    `Invalid response structure from ProductBoard API:`,
+                    resp,
+                  );
+                  break;
+                }
+
+                const pageItems: any[] = Array.isArray(resp?.data)
+                  ? resp.data
+                  : [];
+                const filtered = await applyFilters(pageItems);
+
+                for (const it of filtered) {
+                  if (limit && matches.length >= limit) break;
+                  matches.push(filterFields(it));
+                }
+
+                // Safely extract next cursor
+                const nextCursor = resp?.links?.next;
+                if (typeof nextCursor === "string" && nextCursor.length > 0) {
+                  next = nextCursor;
+                } else {
+                  next = undefined; // No more pages
+                }
+
+                pages += 1;
+              } catch (error) {
+                hasError = true;
+                console.warn(`Error fetching page ${pages + 1}:`, error);
+                // If it's the first page, rethrow the error
+                if (pages === 0) {
+                  throw error;
+                }
+                // Otherwise, stop pagination and return what we have
+                break;
               }
-              next = resp?.links?.next;
-              pages += 1;
             } while (shouldContinue());
 
             // If no autopagination and no cursor provided, we only returned first page filtered
             const payload = {
               ...(lastResp || {}),
               data: limit ? matches.slice(0, limit) : matches,
+              // Add pagination metadata for debugging
+              _pagination: {
+                pages_fetched: pages,
+                total_items: matches.length,
+                had_error: hasError,
+                auto_paginate: autoPaginate,
+                max_pages: maxPages,
+                limit: limit,
+              },
               // If we stopped due to reaching the limit but there is a next page, preserve the cursor
               links: {
                 ...(lastResp?.links || {}),
