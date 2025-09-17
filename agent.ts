@@ -171,10 +171,22 @@ Response style
             let pages = 0;
             let lastResp: any | undefined;
 
-            const applyFilters = (arr: any[]) => {
+            const applyFilters = async (arr: any[]) => {
               let out = arr;
-              if (finalProductId) {
-                out = out.filter((f: any) => f?.product?.id === finalProductId);
+              const hasProductField = out.some(
+                (f: any) => f && f.product && f.product.id,
+              );
+              // Only filter by product if the product.id field exists on items
+              if (hasProductField) {
+                const targetProductId =
+                  productId ??
+                  defaultProductIdResolved ??
+                  (defaultProductIdResolved = await getDefaultCoderProductId());
+                if (targetProductId) {
+                  out = out.filter(
+                    (f: any) => f?.product?.id === targetProductId,
+                  );
+                }
               }
               if (resolvedStatusIds && resolvedStatusIds.length) {
                 const set = new Set(resolvedStatusIds);
@@ -199,7 +211,7 @@ Response style
               const pageItems: any[] = Array.isArray(resp?.data)
                 ? resp.data
                 : [];
-              const filtered = applyFilters(pageItems);
+              const filtered = await applyFilters(pageItems);
               for (const it of filtered) {
                 if (limit && matches.length >= limit) break;
                 matches.push(it);
