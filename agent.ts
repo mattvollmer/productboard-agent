@@ -120,24 +120,40 @@ Response style
         // Productboard: list features (client-side filtering + optional autopagination)
         pb_list_features: tool({
           description:
-            "List features with optional client-side filters. Defaults to product 'coder' when productId is omitted.",
+            "List features with optional client-side filters. Defaults to product 'coder' when productId is omitted. Returns only essential fields to avoid context window issues.",
           inputSchema: z.object({
             productId: z.string().optional(),
             statusIds: z.array(z.string()).optional(),
             statusNames: z.array(z.string()).optional(),
-            limit: z.number().int().min(1).max(1000).optional(),
+            limit: z.number().int().min(1).max(100).optional(), // Reduced from 1000
             cursor: z.string().optional(),
             autoPaginate: z.boolean().optional(),
-            maxPages: z.number().int().min(1).max(100).optional(),
+            maxPages: z.number().int().min(1).max(10).optional(), // Reduced from 100
+            fields: z
+              .array(
+                z.enum([
+                  "id",
+                  "name",
+                  "description",
+                  "status",
+                  "product",
+                  "owner",
+                  "createdAt",
+                  "updatedAt",
+                  "all",
+                ]),
+              )
+              .optional(),
           }),
           execute: async ({
             productId,
             statusIds,
             statusNames,
-            limit,
+            limit = 20, // Set reasonable default
             cursor,
-            autoPaginate = true, // Default value
-            maxPages = 20, // Default value
+            autoPaginate = false, // Disabled by default
+            maxPages = 3, // Reduced default
+            fields = ["id", "name", "status"], // Default to essential fields only
           }) => {
             const finalProductId =
               productId ?? (await getDefaultCoderProductId());
@@ -201,6 +217,64 @@ Response style
               return Boolean(next);
             };
 
+            // Helper function to filter fields in response objects
+            const filterFields = (item: any) => {
+              if (fields.includes("all")) return item;
+
+              const filtered: any = {};
+              fields.forEach((field) => {
+                switch (field) {
+                  case "id":
+                    if (item.id) filtered.id = item.id;
+                    break;
+                  case "name":
+                    if (item.name) filtered.name = item.name;
+                    break;
+                  case "description":
+                    if (item.description) {
+                      // Truncate long descriptions to avoid context bloat
+                      const desc = String(item.description);
+                      filtered.description =
+                        desc.length > 500
+                          ? desc.substring(0, 500) + "..."
+                          : desc;
+                    }
+                    break;
+                  case "status":
+                    if (item.status) {
+                      filtered.status = {
+                        id: item.status.id,
+                        name: item.status.name,
+                      };
+                    }
+                    break;
+                  case "product":
+                    if (item.product) {
+                      filtered.product = {
+                        id: item.product.id,
+                        name: item.product.name,
+                      };
+                    }
+                    break;
+                  case "owner":
+                    if (item.owner) {
+                      filtered.owner = {
+                        id: item.owner.id,
+                        name: item.owner.name || item.owner.email,
+                      };
+                    }
+                    break;
+                  case "createdAt":
+                    if (item.createdAt) filtered.createdAt = item.createdAt;
+                    break;
+                  case "updatedAt":
+                    if (item.updatedAt) filtered.updatedAt = item.updatedAt;
+                    break;
+                }
+              });
+              return filtered;
+            };
+
             // Fetch first page (or provided cursor)
             do {
               const resp = await pbFetchWithRetry(next ?? "/features", 3, 250); // Switched to pbFetchWithRetry
@@ -211,7 +285,7 @@ Response style
               const filtered = await applyFilters(pageItems);
               for (const it of filtered) {
                 if (limit && matches.length >= limit) break;
-                matches.push(it);
+                matches.push(filterFields(it)); // Apply field filtering here
               }
               next = resp?.links?.next;
               pages += 1;
