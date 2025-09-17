@@ -347,17 +347,36 @@ Response style
         // Productboard: list custom fields (requires type string per PB docs)
         pb_list_custom_fields: tool({
           description:
-            "List custom field definitions. PB recommends specifying a 'type' filter to remain forward-compatible.",
+            "List custom field definitions. Accepts optional type or entityType; will probe API variants if needed.",
           inputSchema: z.object({
             type: z.string().optional(),
+            entityType: z.string().optional(),
             cursor: z.string().optional(),
           }),
-          execute: async ({ type, cursor }) => {
+          execute: async ({ type, entityType, cursor }) => {
             if (cursor) return pbFetch(cursor);
-            const params = new URLSearchParams();
-            if (type) params.set("type", type);
-            const qs = params.toString();
-            return pbFetch(`/custom-fields${qs ? `?${qs}` : ""}`);
+            const t = type ?? entityType ?? "feature";
+            const attempts = [
+              `/custom-fields?type=${encodeURIComponent(t)}`,
+              `/custom-fields?entityType=${encodeURIComponent(t)}`,
+              `/custom-fields`,
+            ];
+            const tried: string[] = [];
+            let lastErr: any;
+            for (const url of attempts) {
+              tried.push(url);
+              try {
+                const res = await pbFetchWithRetry(url, 3, 250);
+                return { ...res, meta: { variant: url, tried } };
+              } catch (err) {
+                lastErr = err;
+              }
+            }
+            const msg =
+              lastErr instanceof Error ? lastErr.message : String(lastErr);
+            throw new Error(
+              `Failed to list custom fields after attempts: ${tried.join(", ")} -> ${msg}`,
+            );
           },
         }),
 
