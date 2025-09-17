@@ -176,12 +176,11 @@ Response style
               const hasProductField = out.some(
                 (f: any) => f && f.product && f.product.id,
               );
-              // Only filter by product if the product.id field exists on items
               if (hasProductField) {
                 const targetProductId =
                   productId ??
-                  defaultProductIdResolved ??
-                  (defaultProductIdResolved = await getDefaultCoderProductId());
+                  (defaultCoderProductId ||
+                    (defaultCoderProductId = await getDefaultCoderProductId()));
                 if (targetProductId) {
                   out = out.filter(
                     (f: any) => f?.product?.id === targetProductId,
