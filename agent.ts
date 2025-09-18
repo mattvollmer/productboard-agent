@@ -713,6 +713,7 @@ Output format
             let url;
             if (cursor && cursor.trim().length > 0) {
               url = cursor;
+              console.log('Using cursor URL:', url); // Debug log
             } else {
               const params = new URLSearchParams();
               if (featureId) params.set("featureId", featureId);
@@ -721,8 +722,10 @@ Output format
               if (limit) params.set("limit", String(limit));
               const qs = params.toString();
               url = `/notes${qs ? `?${qs}` : ""}`;
+              console.log('Built initial URL:', url); // Debug log
             }
 
+            console.log('Final URL being fetched:', url); // Debug log
             const response = await pbFetch(url);
 
             // Strip content from all results (both initial and paginated)
