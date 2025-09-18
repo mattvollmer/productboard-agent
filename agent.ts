@@ -133,7 +133,7 @@ Output format
         // Productboard: list features (client-side filtering + optional autopagination)
         pb_list_features: tool({
           description:
-            "List features with optional client-side filters. Defaults to product 'coder' when productId is omitted. Returns only essential fields (no descriptions) to minimize context window usage.",
+            "List features with optional filters. Defaults to product 'coder' when productId is omitted. Single status ID uses server-side filtering for better performance, while multiple status IDs use client-side filtering due to API limitations. Returns only essential fields (no descriptions) to minimize context window usage.",
           inputSchema: z.object({
             productId: z.string().optional(),
             statusIds: z.array(z.string()).optional(),
@@ -211,13 +211,12 @@ Output format
             const buildInitialUrl = (): string => {
               const params = new URLSearchParams();
 
-              // Use server-side status.id filtering if statusIds provided
-              if (resolvedStatusIds && resolvedStatusIds.length > 0) {
-                // ProductBoard API supports status.id parameter
-                resolvedStatusIds.forEach((statusId) => {
-                  params.append("status.id", statusId);
-                });
+              // Use server-side status.id filtering ONLY for single status ID
+              // Multiple status IDs cause API validation errors, so we'll filter client-side instead
+              if (resolvedStatusIds && resolvedStatusIds.length === 1) {
+                params.append("status.id", resolvedStatusIds[0]);
               }
+              // For multiple status IDs, skip server-side filtering and rely on client-side filtering
 
               const queryString = params.toString();
               return queryString ? `/features?${queryString}` : "/features";
@@ -245,14 +244,15 @@ Output format
               // If we didn't use server-side status filtering, apply client-side
               if (!resolvedStatusIds || resolvedStatusIds.length === 0) {
                 // This means we didn't filter server-side, so no client-side filtering needed
-              } else if (cursor) {
-                // When using cursor, we might get mixed results, so still filter client-side as backup
+              } else if (cursor || resolvedStatusIds.length > 1) {
+                // When using cursor OR multiple status IDs, filter client-side
+                // (Multiple status IDs aren't sent to server due to API validation errors)
                 const set = new Set(resolvedStatusIds);
                 out = out.filter(
                   (f: any) => f?.status?.id && set.has(f.status.id),
                 );
               }
-              // Note: If we used server-side status filtering on the initial call,
+              // Note: If we used server-side status filtering on the initial call (single status ID),
               // subsequent paginated calls should maintain the same filter
 
               return out;
