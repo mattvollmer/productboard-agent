@@ -525,7 +525,7 @@ Response style
 
             // Build query parameters
             const params = new URLSearchParams();
-            fieldTypes.forEach((type) => params.append("type", type));
+            params.set("type", fieldTypes.join(","));
 
             // Use correct endpoint with required X-Version header
             const url = `/hierarchy-entities/custom-fields?${params.toString()}`;
@@ -586,7 +586,7 @@ Response style
                 "multi-dropdown",
                 "member",
               ];
-              fieldTypes.forEach((type) => params.append("type", type));
+              params.set("type", fieldTypes.join(","));
             }
 
             // Add hierarchyEntity.id filters if provided
