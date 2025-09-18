@@ -79,6 +79,12 @@ export default blink.agent({
 
 Operate strictly via the provided tools to read Productboard data. Do not invent endpoints or parameters.
 
+TEMPORAL AWARENESS:
+- ALWAYS call the current_date tool when users mention time-relative terms like "next quarter", "upcoming", "past few weeks", "this month", "Q1", "Q2", etc.
+- Use the date context to properly interpret and filter queries about timelines and roadmaps
+- When discussing quarters, provide specific date ranges (e.g., "Q1 2025 runs from January 1 to March 31, 2025")
+- Help users understand what "current" vs "next" means in concrete date terms
+
 IMPORTANT - USER-FRIENDLY RESPONSES:
 - Never show raw UUID strings (e.g., "a1b2c3d4-e5f6-...") in your responses to users
 - When tools return only IDs, use additional tool calls to fetch readable names and details
@@ -97,7 +103,11 @@ How to answer common questions
 - "What are we currently working on?":
   1) List feature statuses and identify in-progress ones.
   2) List features and filter client-side by the in-progress status IDs and the coder product.
-- "What’s coming next?": use releases if available, otherwise return features by status; ask for clarification if needed.
+- "What's coming next?": use releases if available, otherwise return features by status; ask for clarification if needed.
+- Time-based queries ("next quarter", "upcoming", "past few weeks"):
+  1) Call current_date tool first to establish temporal context
+  2) Provide specific date ranges when discussing quarters or timeframes
+  3) Filter results by relevant status IDs and release dates when available
 
 Tooling rules
 - Use pagination when links.next is present by accepting/propagating cursor.
@@ -111,6 +121,65 @@ Output format
 `,
       messages: convertToModelMessages(messages),
       tools: {
+        // Date/Time awareness
+        current_date: tool({
+          description:
+            "Get the current date and time information. Use this to understand temporal context for queries about 'next quarter', 'past few weeks', 'upcoming', etc.",
+          inputSchema: z.object({}),
+          execute: async () => {
+            const now = new Date();
+            const currentYear = now.getFullYear();
+            const currentMonth = now.getMonth() + 1; // 0-indexed, so add 1
+            const currentQuarter = Math.ceil(currentMonth / 3);
+
+            // Calculate quarter boundaries
+            const quarterStartMonth = (currentQuarter - 1) * 3 + 1;
+            const quarterEndMonth = currentQuarter * 3;
+            const quarterStart = new Date(
+              currentYear,
+              quarterStartMonth - 1,
+              1,
+            );
+            const quarterEnd = new Date(currentYear, quarterEndMonth, 0); // Last day of quarter
+
+            // Next quarter
+            const nextQuarter = currentQuarter === 4 ? 1 : currentQuarter + 1;
+            const nextQuarterYear =
+              currentQuarter === 4 ? currentYear + 1 : currentYear;
+            const nextQuarterStartMonth = (nextQuarter - 1) * 3 + 1;
+            const nextQuarterEndMonth = nextQuarter * 3;
+            const nextQuarterStart = new Date(
+              nextQuarterYear,
+              nextQuarterStartMonth - 1,
+              1,
+            );
+            const nextQuarterEnd = new Date(
+              nextQuarterYear,
+              nextQuarterEndMonth,
+              0,
+            );
+
+            return {
+              current_date: now.toISOString().split("T")[0], // YYYY-MM-DD format
+              current_datetime: now.toISOString(),
+              current_year: currentYear,
+              current_month: currentMonth,
+              current_quarter: `Q${currentQuarter} ${currentYear}`,
+              current_quarter_start: quarterStart.toISOString().split("T")[0],
+              current_quarter_end: quarterEnd.toISOString().split("T")[0],
+              next_quarter: `Q${nextQuarter} ${nextQuarterYear}`,
+              next_quarter_start: nextQuarterStart.toISOString().split("T")[0],
+              next_quarter_end: nextQuarterEnd.toISOString().split("T")[0],
+              timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+              day_of_week: now.toLocaleDateString("en-US", { weekday: "long" }),
+              week_of_year: Math.ceil(
+                (now.getTime() - new Date(currentYear, 0, 1).getTime()) /
+                  (7 * 24 * 60 * 60 * 1000),
+              ),
+            };
+          },
+        }),
+
         // Productboard: list products
         pb_list_products: tool({
           description: "List all Productboard products in the workspace.",
