@@ -584,25 +584,6 @@ Response style
             return pbFetch(`/custom-fields/values?${params.toString()}`);
           },
         }),
-
-        // Productboard: get tags for a specific note
-        pb_get_note_tags: tool({
-          description:
-            "Get tags for a specific note. ProductBoard tags are note-specific, not global.",
-          inputSchema: z.object({
-            noteId: z.string(),
-            cursor: z.string().optional(),
-          }),
-          execute: async ({ noteId, cursor }) => {
-            // Handle cursor properly first
-            if (cursor && cursor.trim().length > 0) {
-              return pbFetch(cursor);
-            }
-
-            // Use the correct ProductBoard API endpoint
-            return pbFetch(`/notes/${encodeURIComponent(noteId)}/tags`);
-          },
-        }),
       },
     });
   },
