@@ -40,7 +40,7 @@ async function getDefaultCoderProductId(): Promise<string> {
   const data = await pbFetch("/products");
   const products = Array.isArray(data?.data) ? data.data : [];
   const coder = products.find(
-    (p: any) => (p?.name || "").toLowerCase() === "coder"
+    (p: any) => (p?.name || "").toLowerCase() === "coder",
   );
   if (!coder)
     throw new Error("Default product 'coder' not found in Productboard");
@@ -56,7 +56,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 async function pbFetchWithRetry(
   input: string | URL,
   attempts = 3,
-  baseDelayMs = 250
+  baseDelayMs = 250,
 ) {
   let lastErr: any;
   for (let i = 0; i < attempts; i++) {
@@ -144,7 +144,7 @@ Response style
                   "createdAt",
                   "updatedAt",
                   "all",
-                ])
+                ]),
               )
               .optional(),
           }),
@@ -173,12 +173,12 @@ Response style
                 ? statusResp.data
                 : [];
               const wanted = new Set(
-                statusNames.map((s: string) => s.toLowerCase())
+                statusNames.map((s: string) => s.toLowerCase()),
               );
               resolvedStatusIds = allStatuses
                 .filter(
                   (st: any) =>
-                    st?.name && wanted.has(String(st.name).toLowerCase())
+                    st?.name && wanted.has(String(st.name).toLowerCase()),
                 )
                 .map((st: any) => String(st.id));
             }
@@ -219,7 +219,7 @@ Response style
 
               // Only apply product filtering client-side (not supported server-side)
               const hasProductField = out.some(
-                (f: any) => f && f.product && f.product.id
+                (f: any) => f && f.product && f.product.id,
               );
               if (hasProductField) {
                 const targetProductId =
@@ -228,7 +228,7 @@ Response style
                     (defaultCoderProductId = await getDefaultCoderProductId()));
                 if (targetProductId) {
                   out = out.filter(
-                    (f: any) => f?.product?.id === targetProductId
+                    (f: any) => f?.product?.id === targetProductId,
                   );
                 }
               }
@@ -240,7 +240,7 @@ Response style
                 // When using cursor, we might get mixed results, so still filter client-side as backup
                 const set = new Set(resolvedStatusIds);
                 out = out.filter(
-                  (f: any) => f?.status?.id && set.has(f.status.id)
+                  (f: any) => f?.status?.id && set.has(f.status.id),
                 );
               }
               // Note: If we used server-side status filtering on the initial call,
@@ -325,7 +325,7 @@ Response style
                   hasError = true;
                   console.warn(
                     `Invalid response structure from ProductBoard API:`,
-                    resp
+                    resp,
                   );
                   break;
                 }
@@ -430,26 +430,105 @@ Response style
         // Productboard: list feature-release assignments
         pb_list_feature_release_assignments: tool({
           description:
-            "List all feature-release assignments. Uses ProductBoard's default pagination (100 items per page). Filter results client-side by releaseId or featureId.",
+            "List feature-release assignments. Supports auto-pagination to ensure all assignments are found. WARNING: Results are paginated - use autoPaginate=true to get all results or manually handle cursor for pagination.",
           inputSchema: z.object({
             cursor: z.string().optional(),
+            autoPaginate: z.boolean().optional(),
+            maxPages: z.number().int().min(1).max(10).optional(),
+            limit: z.number().int().min(1).max(100).optional(),
           }),
-          execute: async ({ cursor }) => {
-            // Normalize cursor handling like in pb_list_features
+          execute: async ({
+            cursor,
+            autoPaginate = true,
+            maxPages = 5,
+            limit = 100,
+          }) => {
+            const matches: any[] = [];
+            let next: string | undefined = cursor;
+            let pages = 0;
+            let lastResp: any | undefined;
+            let hasError = false;
+
+            // Helper function to normalize cursor/URL
             const buildUrl = (c?: string): string => {
               if (c && typeof c === "string" && c.trim().length > 0) {
                 // Handle cursor - could be full URL, path, or bare token
                 const isAbs = /^https?:\/\//i.test(c);
                 if (isAbs) return c;
                 if (c.startsWith("/")) return c;
-                return `/feature-release-assignments?pageCursor=${encodeURIComponent(
-                  c
-                )}`;
+                return `/feature-release-assignments?pageCursor=${encodeURIComponent(c)}`;
               }
               return "/feature-release-assignments";
             };
 
-            return pbFetch(buildUrl(cursor));
+            const shouldContinue = () => {
+              if (hasError) return false;
+              if (!autoPaginate) return false;
+              if (limit && matches.length >= limit) return false;
+              if (maxPages && pages >= maxPages) return false;
+              return Boolean(next);
+            };
+
+            // Fetch pages
+            do {
+              try {
+                const resp = await pbFetch(buildUrl(next));
+                lastResp = resp;
+
+                // Validate response structure
+                if (!resp || typeof resp !== "object") {
+                  hasError = true;
+                  console.warn(
+                    `Invalid response structure from ProductBoard API:`,
+                    resp,
+                  );
+                  break;
+                }
+
+                const pageItems: any[] = Array.isArray(resp?.data)
+                  ? resp.data
+                  : [];
+
+                for (const item of pageItems) {
+                  if (limit && matches.length >= limit) break;
+                  matches.push(item);
+                }
+
+                // Extract next cursor
+                const nextCursor = resp?.links?.next;
+                if (typeof nextCursor === "string" && nextCursor.length > 0) {
+                  next = nextCursor;
+                } else {
+                  next = undefined;
+                }
+
+                pages += 1;
+              } catch (error) {
+                hasError = true;
+                console.warn(`Error fetching page ${pages + 1}:`, error);
+                if (pages === 0) {
+                  throw error; // Rethrow if first page fails
+                }
+                break; // Stop pagination on error
+              }
+            } while (shouldContinue());
+
+            // Return results with pagination metadata
+            const payload = {
+              ...(lastResp || {}),
+              data: limit ? matches.slice(0, limit) : matches,
+              _pagination: {
+                pages_fetched: pages,
+                total_items: matches.length,
+                had_error: hasError,
+                auto_paginate: autoPaginate,
+                max_pages: maxPages,
+                limit: limit,
+                next_cursor: lastResp?.links?.next || null,
+              },
+            };
+
+            return payload;
           },
         }),
 
@@ -505,7 +584,7 @@ Response style
                   "dropdown",
                   "multi-dropdown",
                   "member",
-                ])
+                ]),
               )
               .optional(),
             cursor: z.string().optional(),
@@ -557,7 +636,7 @@ Response style
                   "dropdown",
                   "multi-dropdown",
                   "member",
-                ])
+                ]),
               )
               .optional(),
             cursor: z.string().optional(),
@@ -595,7 +674,7 @@ Response style
             // Add hierarchyEntity.id filters if provided
             if (entityIds && entityIds.length > 0) {
               entityIds.forEach((id) =>
-                params.append("hierarchyEntity.id", id)
+                params.append("hierarchyEntity.id", id),
               );
             }
 
