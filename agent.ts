@@ -712,8 +712,13 @@ Output format
             // Handle cursor properly - use same pattern as other working tools
             let url;
             if (cursor && cursor.trim().length > 0) {
-              url = cursor;
-              console.log('Using cursor URL:', url); // Debug log
+              // Validate cursor format - should be a URL or path
+              if (cursor.startsWith('/') || cursor.startsWith('http')) {
+                url = cursor;
+              } else {
+                // Treat as cursor parameter for /notes endpoint
+                url = `/notes?cursor=${encodeURIComponent(cursor)}`;
+              }
             } else {
               const params = new URLSearchParams();
               if (featureId) params.set("featureId", featureId);
@@ -722,42 +727,45 @@ Output format
               if (limit) params.set("limit", String(limit));
               const qs = params.toString();
               url = `/notes${qs ? `?${qs}` : ""}`;
-              console.log('Built initial URL:', url); // Debug log
             }
 
-            console.log('Final URL being fetched:', url); // Debug log
-            const response = await pbFetch(url);
-
-            // Strip content from all results (both initial and paginated)
-            if (response.data) {
-              response.data = response.data.map((note: any) => ({
-                id: note.id,
-                title: note.title,
-                state: note.state,
-                tags: note.tags,
-                createdAt: note.createdAt,
-                updatedAt: note.updatedAt,
-                source: note.source,
-                company: note.company
-                  ? { id: note.company.id, name: note.company.name }
-                  : null,
-                user: note.user
-                  ? { id: note.user.id, name: note.user.name }
-                  : null,
-                features: note.features
-                  ? note.features.map((f: any) => ({
-                      id: f.id,
-                      name: f.name,
-                      importance: f.importance,
-                    }))
-                  : [],
-                owner: note.owner
-                  ? { id: note.owner.id, name: note.owner.name }
-                  : null,
-                // Explicitly omit content field
-              }));
+            try {
+              const response = await pbFetch(url);
+              
+              // Strip content from all results (both initial and paginated)
+              if (response.data) {
+                response.data = response.data.map((note: any) => ({
+                  id: note.id,
+                  title: note.title,
+                  state: note.state,
+                  tags: note.tags,
+                  createdAt: note.createdAt,
+                  updatedAt: note.updatedAt,
+                  source: note.source,
+                  company: note.company
+                    ? { id: note.company.id, name: note.company.name }
+                    : null,
+                  user: note.user
+                    ? { id: note.user.id, name: note.user.name }
+                    : null,
+                  features: note.features
+                    ? note.features.map((f: any) => ({
+                        id: f.id,
+                        name: f.name,
+                        importance: f.importance,
+                      }))
+                    : [],
+                  owner: note.owner
+                    ? { id: note.owner.id, name: note.owner.name }
+                    : null,
+                  // Explicitly omit content field
+                }));
+              }
+              return response;
+            } catch (error) {
+              // Enhanced error reporting
+              throw new Error(`Failed to fetch notes with URL: ${url}. Original error: ${error}`);
             }
-            return response;
           },
         }),
 
