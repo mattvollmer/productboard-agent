@@ -40,7 +40,7 @@ async function getDefaultCoderProductId(): Promise<string> {
   const data = await pbFetch("/products");
   const products = Array.isArray(data?.data) ? data.data : [];
   const coder = products.find(
-    (p: any) => (p?.name || "").toLowerCase() === "coder"
+    (p: any) => (p?.name || "").toLowerCase() === "coder",
   );
   if (!coder)
     throw new Error("Default product 'coder' not found in Productboard");
@@ -56,7 +56,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 async function pbFetchWithRetry(
   input: string | URL,
   attempts = 3,
-  baseDelayMs = 250
+  baseDelayMs = 250,
 ) {
   let lastErr: any;
   for (let i = 0; i < attempts; i++) {
@@ -106,7 +106,10 @@ Response style
           description: "List all Productboard products in the workspace.",
           inputSchema: z.object({ cursor: z.string().optional() }),
           execute: async ({ cursor }) => {
-            return pbFetch(cursor ?? "/products");
+            // Handle null cursor values and empty strings properly
+            const url =
+              cursor && cursor.trim().length > 0 ? cursor : "/products";
+            return pbFetch(url);
           },
         }),
 
@@ -120,24 +123,39 @@ Response style
         // Productboard: list features (client-side filtering + optional autopagination)
         pb_list_features: tool({
           description:
-            "List features with optional client-side filters. Defaults to product 'coder' when productId is omitted.",
+            "List features with optional client-side filters. Defaults to product 'coder' when productId is omitted. Returns only essential fields (no descriptions) to minimize context window usage.",
           inputSchema: z.object({
             productId: z.string().optional(),
             statusIds: z.array(z.string()).optional(),
             statusNames: z.array(z.string()).optional(),
-            limit: z.number().int().min(1).max(1000).optional(),
+            limit: z.number().int().min(1).max(100).optional(), // Reduced from 1000
             cursor: z.string().optional(),
             autoPaginate: z.boolean().optional(),
-            maxPages: z.number().int().min(1).max(100).optional(),
+            maxPages: z.number().int().min(1).max(10).optional(), // Reduced from 100
+            fields: z
+              .array(
+                z.enum([
+                  "id",
+                  "name",
+                  "status",
+                  "product",
+                  "owner",
+                  "createdAt",
+                  "updatedAt",
+                  "all",
+                ]),
+              )
+              .optional(),
           }),
           execute: async ({
             productId,
             statusIds,
             statusNames,
-            limit,
+            limit = 20, // Set reasonable default
             cursor,
-            autoPaginate = true, // Default value
-            maxPages = 20, // Default value
+            autoPaginate = false, // Disabled by default
+            maxPages = 3, // Reduced default
+            fields = ["id", "name", "status"], // Default to essential fields only
           }) => {
             const finalProductId =
               productId ?? (await getDefaultCoderProductId());
@@ -154,12 +172,12 @@ Response style
                 ? statusResp.data
                 : [];
               const wanted = new Set(
-                statusNames.map((s: string) => s.toLowerCase())
+                statusNames.map((s: string) => s.toLowerCase()),
               );
               resolvedStatusIds = allStatuses
                 .filter(
                   (st: any) =>
-                    st?.name && wanted.has(String(st.name).toLowerCase())
+                    st?.name && wanted.has(String(st.name).toLowerCase()),
                 )
                 .map((st: any) => String(st.id));
             }
@@ -168,11 +186,39 @@ Response style
             let next: string | undefined = cursor;
             let pages = 0;
             let lastResp: any | undefined;
+            let hasError = false;
+
+            // Normalize provided cursor: accept full URL, path, or bare token
+            const buildUrlFromCursor = (c?: string): string => {
+              if (!c) return "/features";
+              const isAbs = /^https?:\/\//i.test(c);
+              if (isAbs) return c;
+              if (c.startsWith("/")) return c;
+              return `/features?pageCursor=${encodeURIComponent(c)}`;
+            };
+
+            // Build initial URL with server-side filters
+            const buildInitialUrl = (): string => {
+              const params = new URLSearchParams();
+
+              // Use server-side status.id filtering if statusIds provided
+              if (resolvedStatusIds && resolvedStatusIds.length > 0) {
+                // ProductBoard API supports status.id parameter
+                resolvedStatusIds.forEach((statusId) => {
+                  params.append("status.id", statusId);
+                });
+              }
+
+              const queryString = params.toString();
+              return queryString ? `/features?${queryString}` : "/features";
+            };
 
             const applyFilters = async (arr: any[]) => {
               let out = arr;
+
+              // Only apply product filtering client-side (not supported server-side)
               const hasProductField = out.some(
-                (f: any) => f && f.product && f.product.id
+                (f: any) => f && f.product && f.product.id,
               );
               if (hasProductField) {
                 const targetProductId =
@@ -181,46 +227,156 @@ Response style
                     (defaultCoderProductId = await getDefaultCoderProductId()));
                 if (targetProductId) {
                   out = out.filter(
-                    (f: any) => f?.product?.id === targetProductId
+                    (f: any) => f?.product?.id === targetProductId,
                   );
                 }
               }
-              if (resolvedStatusIds && resolvedStatusIds.length) {
+
+              // If we didn't use server-side status filtering, apply client-side
+              if (!resolvedStatusIds || resolvedStatusIds.length === 0) {
+                // This means we didn't filter server-side, so no client-side filtering needed
+              } else if (cursor) {
+                // When using cursor, we might get mixed results, so still filter client-side as backup
                 const set = new Set(resolvedStatusIds);
                 out = out.filter(
-                  (f: any) => f?.status?.id && set.has(f.status.id)
+                  (f: any) => f?.status?.id && set.has(f.status.id),
                 );
               }
+              // Note: If we used server-side status filtering on the initial call,
+              // subsequent paginated calls should maintain the same filter
+
               return out;
             };
 
             const shouldContinue = () => {
+              if (hasError) return false; // Stop if we hit an error
               if (!autoPaginate) return false;
               if (limit && matches.length >= limit) return false;
               if (maxPages && pages >= maxPages) return false;
               return Boolean(next);
             };
 
+            // Helper function to filter fields in response objects
+            const filterFields = (item: any) => {
+              if (fields.includes("all")) return item;
+
+              const filtered: any = {};
+              fields.forEach((field) => {
+                switch (field) {
+                  case "id":
+                    if (item.id) filtered.id = item.id;
+                    break;
+                  case "name":
+                    if (item.name) filtered.name = item.name;
+                    break;
+                  case "status":
+                    if (item.status) {
+                      filtered.status = {
+                        id: item.status.id,
+                        name: item.status.name,
+                      };
+                    }
+                    break;
+                  case "product":
+                    if (item.product) {
+                      filtered.product = {
+                        id: item.product.id,
+                        name: item.product.name,
+                      };
+                    }
+                    break;
+                  case "owner":
+                    if (item.owner) {
+                      filtered.owner = {
+                        id: item.owner.id,
+                        name: item.owner.name || item.owner.email,
+                      };
+                    }
+                    break;
+                  case "createdAt":
+                    if (item.createdAt) filtered.createdAt = item.createdAt;
+                    break;
+                  case "updatedAt":
+                    if (item.updatedAt) filtered.updatedAt = item.updatedAt;
+                    break;
+                }
+              });
+              return filtered;
+            };
+
             // Fetch first page (or provided cursor)
             do {
-              const resp = await pbFetchWithRetry(next ?? "/features", 3, 250); // Switched to pbFetchWithRetry
-              lastResp = resp;
-              const pageItems: any[] = Array.isArray(resp?.data)
-                ? resp.data
-                : [];
-              const filtered = await applyFilters(pageItems);
-              for (const it of filtered) {
-                if (limit && matches.length >= limit) break;
-                matches.push(it);
+              try {
+                let requestUrl: string;
+                if (next) {
+                  // Use cursor-based URL (could be full URL or cursor token)
+                  requestUrl = buildUrlFromCursor(next);
+                } else {
+                  // First request - use URL with server-side filters
+                  requestUrl = buildInitialUrl();
+                }
+
+                const resp = await pbFetchWithRetry(requestUrl, 3, 250);
+                lastResp = resp;
+
+                // Validate response structure
+                if (!resp || typeof resp !== "object") {
+                  hasError = true;
+                  console.warn(
+                    `Invalid response structure from ProductBoard API:`,
+                    resp,
+                  );
+                  break;
+                }
+
+                const pageItems: any[] = Array.isArray(resp?.data)
+                  ? resp.data
+                  : [];
+                const filtered = await applyFilters(pageItems);
+
+                for (const it of filtered) {
+                  if (limit && matches.length >= limit) break;
+                  matches.push(filterFields(it));
+                }
+
+                // Safely extract next cursor
+                const nextCursor = resp?.links?.next;
+                if (typeof nextCursor === "string" && nextCursor.length > 0) {
+                  next = nextCursor; // can be full URL; will be normalized next loop
+                } else {
+                  next = undefined; // No more pages
+                }
+
+                pages += 1;
+              } catch (error) {
+                hasError = true;
+                console.warn(`Error fetching page ${pages + 1}:`, error);
+                // If it's the first page, rethrow the error
+                if (pages === 0) {
+                  throw error;
+                }
+                // Otherwise, stop pagination and return what we have
+                break;
               }
-              next = resp?.links?.next;
-              pages += 1;
             } while (shouldContinue());
 
             // If no autopagination and no cursor provided, we only returned first page filtered
             const payload = {
               ...(lastResp || {}),
               data: limit ? matches.slice(0, limit) : matches,
+              // Add pagination metadata for debugging
+              _pagination: {
+                pages_fetched: pages,
+                total_items: matches.length,
+                had_error: hasError,
+                auto_paginate: autoPaginate,
+                max_pages: maxPages,
+                limit: limit,
+                used_server_side_filtering: !!(
+                  resolvedStatusIds && resolvedStatusIds.length > 0
+                ),
+                api_compliant: true, // Now following ProductBoard API docs
+              },
               // If we stopped due to reaching the limit but there is a next page, preserve the cursor
               links: {
                 ...(lastResp?.links || {}),
@@ -253,73 +409,55 @@ Response style
         pb_list_releases: tool({
           description: "List releases (optionally paginate).",
           inputSchema: z.object({ cursor: z.string().optional() }),
-          execute: async ({ cursor }) => pbFetch(cursor ?? "/releases"),
+          execute: async ({ cursor }) => {
+            // Normalize cursor handling like other pagination tools
+            const buildUrl = (c?: string | null): string => {
+              if (c && typeof c === "string" && c.trim().length > 0) {
+                // Handle cursor - could be full URL, path, or bare token
+                const isAbs = /^https?:\/\//i.test(c);
+                if (isAbs) return c;
+                if (c.startsWith("/")) return c;
+                return `/releases?pageCursor=${encodeURIComponent(c)}`;
+              }
+              return "/releases";
+            };
+
+            return pbFetch(buildUrl(cursor));
+          },
         }),
 
         // Productboard: list feature-release assignments
         pb_list_feature_release_assignments: tool({
           description:
-            "List feature-release assignments, optionally filtered by releaseId or featureId.",
+            "List all feature-release assignments. Uses ProductBoard's default pagination (100 items per page). Filter results client-side by releaseId or featureId.",
           inputSchema: z.object({
-            releaseId: z.string().optional(),
-            featureId: z.string().optional(),
             cursor: z.string().optional(),
-            limit: z.number().int().min(1).max(100).optional(),
           }),
-          execute: async ({ releaseId, featureId, cursor, limit }) => {
-            if (cursor) return pbFetch(cursor);
-            const params = new URLSearchParams();
-            if (releaseId) params.set("releaseId", releaseId);
-            if (featureId) params.set("featureId", featureId);
-            if (limit) params.set("limit", String(limit));
-            const qs = params.toString();
-            return pbFetch(`/feature-release-assignments${qs ? `?${qs}` : ""}`);
-          },
-        }),
+          execute: async ({ cursor }) => {
+            // Normalize cursor handling like in pb_list_features
+            const buildUrl = (c?: string): string => {
+              if (c && typeof c === "string" && c.trim().length > 0) {
+                // Handle cursor - could be full URL, path, or bare token
+                const isAbs = /^https?:\/\//i.test(c);
+                if (isAbs) return c;
+                if (c.startsWith("/")) return c;
+                return `/feature-release-assignments?pageCursor=${encodeURIComponent(c)}`;
+              }
+              return "/feature-release-assignments";
+            };
 
-        // Productboard: list initiatives
-        pb_list_initiatives: tool({
-          description: "List all initiatives.",
-          inputSchema: z.object({ cursor: z.string().optional() }),
-          execute: async ({ cursor }) => pbFetch(cursor ?? "/initiatives"),
+            return pbFetch(buildUrl(cursor));
+          },
         }),
 
         // Productboard: list objectives
         pb_list_objectives: tool({
           description: "List all objectives.",
           inputSchema: z.object({ cursor: z.string().optional() }),
-          execute: async ({ cursor }) => pbFetch(cursor ?? "/objectives"),
-        }),
-
-        // Productboard: list links (relations between entities)
-        pb_list_links: tool({
-          description:
-            "List links between entities (e.g., objective->feature, initiative->feature). Provide fromType/toType and fromId or toId.",
-          inputSchema: z.object({
-            fromType: z.enum(["feature", "initiative", "objective"]).optional(),
-            toType: z.enum(["feature", "initiative", "objective"]).optional(),
-            fromId: z.string().optional(),
-            toId: z.string().optional(),
-            cursor: z.string().optional(),
-            limit: z.number().int().min(1).max(100).optional(),
-          }),
-          execute: async ({
-            fromType,
-            toType,
-            fromId,
-            toId,
-            cursor,
-            limit,
-          }) => {
-            if (cursor) return pbFetch(cursor);
-            if (!fromId && !toId) throw new Error("fromId or toId is required");
-            const params = new URLSearchParams();
-            if (fromType) params.set("fromType", fromType);
-            if (toType) params.set("toType", toType);
-            if (fromId) params.set("fromId", fromId);
-            if (toId) params.set("toId", toId);
-            if (limit) params.set("limit", String(limit));
-            return pbFetch(`/links?${params.toString()}`);
+          execute: async ({ cursor }) => {
+            const url =
+              cursor && cursor.trim().length > 0 ? cursor : "/objectives";
+            return pbFetch(url);
           },
         }),
 
@@ -335,7 +473,11 @@ Response style
             cursor: z.string().optional(),
           }),
           execute: async ({ featureId, tag, updatedSince, limit, cursor }) => {
-            if (cursor) return pbFetch(cursor);
+            // Handle cursor properly - empty strings and null values
+            if (cursor && cursor.trim().length > 0) {
+              return pbFetch(cursor);
+            }
+
             const params = new URLSearchParams();
             if (featureId) params.set("featureId", featureId);
             if (tag) params.set("tag", tag);
@@ -346,80 +488,121 @@ Response style
           },
         }),
 
-        // Productboard: list tags
-        pb_list_tags: tool({
-          description: "List all tags.",
-          inputSchema: z.object({ cursor: z.string().optional() }),
-          execute: async ({ cursor }) => pbFetch(cursor ?? "/tags"),
-        }),
-
         // Productboard: list custom fields (requires type string per PB docs)
         pb_list_custom_fields: tool({
           description:
-            "List custom field definitions. Accepts optional type or entityType; will probe API variants if needed.",
+            "List custom field definitions. Requires at least one field type to be specified.",
           inputSchema: z.object({
-            type: z.string().optional(),
-            entityType: z.string().optional(),
+            types: z
+              .array(
+                z.enum([
+                  "text",
+                  "custom-description",
+                  "number",
+                  "dropdown",
+                  "multi-dropdown",
+                  "member",
+                ]),
+              )
+              .optional(),
             cursor: z.string().optional(),
           }),
-          execute: async ({ type, entityType, cursor }) => {
-            if (cursor) return pbFetch(cursor);
-            const t = type ?? entityType ?? "feature";
-            const attempts = [
-              `/custom-fields?type=${encodeURIComponent(t)}`,
-              `/custom-fields?entityType=${encodeURIComponent(t)}`,
-              `/custom-fields`,
-            ];
-            const tried: string[] = [];
-            let lastErr: any;
-            for (const url of attempts) {
-              tried.push(url);
-              try {
-                const res = await pbFetchWithRetry(url, 3, 250);
-                return { ...res, meta: { variant: url, tried } };
-              } catch (err) {
-                lastErr = err;
-              }
+          execute: async ({ types, cursor }) => {
+            // Handle cursor properly - empty strings and null values
+            if (cursor && cursor.trim().length > 0) {
+              return pbFetch(cursor);
             }
-            const msg =
-              lastErr instanceof Error ? lastErr.message : String(lastErr);
-            throw new Error(
-              `Failed to list custom fields after attempts: ${tried.join(
-                ", "
-              )} -> ${msg}`
-            );
+
+            // Default to all types if none specified (required parameter)
+            const fieldTypes = types || [
+              "text",
+              "custom-description",
+              "number",
+              "dropdown",
+              "multi-dropdown",
+              "member",
+            ];
+
+            // Build query parameters
+            const params = new URLSearchParams();
+            params.set("type", fieldTypes.join(","));
+
+            // Use correct endpoint with required X-Version header
+            const url = `/hierarchy-entities/custom-fields?${params.toString()}`;
+            return pbFetch(url, {
+              headers: {
+                "X-Version": "1",
+              },
+            });
           },
         }),
 
         // Productboard: get custom field values for entities
         pb_get_custom_field_values: tool({
           description:
-            "Get custom field values for specific entities (e.g., features). Provide entityType and entityIds; optionally customFieldIds.",
+            "Get custom field values for hierarchy entities. Requires either customFieldId or types to be specified.",
           inputSchema: z.object({
-            entityType: z
-              .enum(["feature", "initiative", "objective", "product"])
-              .default("feature"),
-            entityIds: z.array(z.string()).min(1),
-            customFieldIds: z.array(z.string()).optional(),
-            limit: z.number().int().min(1).max(100).optional(),
+            entityType: z.enum(["feature", "component", "product"]).optional(),
+            entityIds: z.array(z.string()).optional(),
+            customFieldId: z.string().optional(),
+            types: z
+              .array(
+                z.enum([
+                  "text",
+                  "custom-description",
+                  "number",
+                  "dropdown",
+                  "multi-dropdown",
+                  "member",
+                ]),
+              )
+              .optional(),
             cursor: z.string().optional(),
           }),
           execute: async ({
             entityType,
             entityIds,
-            customFieldIds,
-            limit,
+            customFieldId,
+            types,
             cursor,
           }) => {
-            if (cursor) return pbFetch(cursor);
+            // Handle cursor properly - empty strings and null values
+            if (cursor && cursor.trim().length > 0) {
+              return pbFetch(cursor);
+            }
+
+            // Build query parameters - either customField.id or type is required
             const params = new URLSearchParams();
-            params.set("entityType", entityType);
-            for (const id of entityIds) params.append("entityId", id);
-            if (customFieldIds)
-              for (const cf of customFieldIds)
-                params.append("customFieldId", cf);
-            if (limit) params.set("limit", String(limit));
-            return pbFetch(`/custom-fields/values?${params.toString()}`);
+
+            if (customFieldId) {
+              params.set("customField.id", customFieldId);
+            } else {
+              // Default to all types if no customFieldId specified (required parameter)
+              const fieldTypes = types || [
+                "text",
+                "custom-description",
+                "number",
+                "dropdown",
+                "multi-dropdown",
+                "member",
+              ];
+              params.set("type", fieldTypes.join(","));
+            }
+
+            // Add hierarchyEntity.id filters if provided
+            if (entityIds && entityIds.length > 0) {
+              entityIds.forEach((id) =>
+                params.append("hierarchyEntity.id", id),
+              );
+            }
+
+            // Use correct endpoint with required X-Version header
+            const url = `/hierarchy-entities/custom-fields-values?${params.toString()}`;
+            return pbFetch(url, {
+              headers: {
+                "X-Version": "1",
+              },
+            });
           },
         }),
       },
