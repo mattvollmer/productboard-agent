@@ -527,25 +527,49 @@ Response style
         // Productboard: list custom fields (requires type string per PB docs)
         pb_list_custom_fields: tool({
           description:
-            "List custom field definitions. Optional entityType parameter for filtering.",
+            "List custom field definitions. Requires at least one field type to be specified.",
           inputSchema: z.object({
-            entityType: z.string().optional(),
+            types: z
+              .array(
+                z.enum([
+                  "text",
+                  "custom-description",
+                  "number",
+                  "dropdown",
+                  "multi-dropdown",
+                  "member",
+                ]),
+              )
+              .optional(),
             cursor: z.string().optional(),
           }),
-          execute: async ({ entityType, cursor }) => {
+          execute: async ({ types, cursor }) => {
             // Handle cursor properly - empty strings and null values
             if (cursor && cursor.trim().length > 0) {
               return pbFetch(cursor);
             }
 
-            // Use the standard endpoint - ProductBoard docs show /custom-fields exists
-            if (entityType) {
-              return pbFetch(
-                `/custom-fields?entityType=${encodeURIComponent(entityType)}`,
-              );
-            } else {
-              return pbFetch("/custom-fields");
-            }
+            // Default to all types if none specified (required parameter)
+            const fieldTypes = types || [
+              "text",
+              "custom-description",
+              "number",
+              "dropdown",
+              "multi-dropdown",
+              "member",
+            ];
+
+            // Build query parameters
+            const params = new URLSearchParams();
+            fieldTypes.forEach((type) => params.append("type", type));
+
+            // Use correct endpoint with required X-Version header
+            const url = `/hierarchy-entities/custom-fields?${params.toString()}`;
+            return pbFetch(url, {
+              headers: {
+                "X-Version": "1",
+              },
+            });
           },
         }),
 
