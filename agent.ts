@@ -526,18 +526,44 @@ Response style
 
         // Productboard: list tags
         pb_list_tags: tool({
-          description: "List all tags.",
+          description: "List all tags. Testing different endpoint variations.",
           inputSchema: z.object({ cursor: z.string().optional() }),
           execute: async ({ cursor }) => {
-            const url = cursor && cursor.trim().length > 0 ? cursor : "/tags";
-            return pbFetch(url);
+            // Handle cursor properly first
+            if (cursor && cursor.trim().length > 0) {
+              return pbFetch(cursor);
+            }
+
+            // Test different possible endpoints for tags
+            const tagEndpoints = [
+              "/tags",
+              "/labels",
+              "/tag",
+              "/note-tags",
+              "/notes/tags",
+            ];
+
+            let lastError;
+            for (const endpoint of tagEndpoints) {
+              try {
+                console.log(`Trying tags endpoint: ${endpoint}`);
+                return await pbFetch(endpoint);
+              } catch (error) {
+                lastError = error;
+                console.log(`Failed ${endpoint}:`, error.message);
+              }
+            }
+
+            throw new Error(
+              `All tag endpoints failed. Last error: ${lastError?.message}`,
+            );
           },
         }),
 
         // Productboard: list custom fields (requires type string per PB docs)
         pb_list_custom_fields: tool({
           description:
-            "List custom field definitions. Accepts optional type or entityType; will probe API variants if needed.",
+            "List custom field definitions. Requires entityType parameter - will default to 'feature' if not provided.",
           inputSchema: z.object({
             type: z.string().optional(),
             entityType: z.string().optional(),
@@ -549,21 +575,33 @@ Response style
               return pbFetch(cursor);
             }
 
-            const t = type ?? entityType ?? "feature";
+            // Always provide an entityType - custom fields seem to require it
+            const finalEntityType = entityType || type || "feature";
+
+            // Try the most likely correct endpoint first
             const attempts = [
-              `/custom-fields?type=${encodeURIComponent(t)}`,
-              `/custom-fields?entityType=${encodeURIComponent(t)}`,
+              `/custom-fields?entityType=${encodeURIComponent(finalEntityType)}`,
+              `/custom-fields?type=${encodeURIComponent(finalEntityType)}`,
               `/custom-fields`,
+              "/customfields", // Alternative naming
+              `/fields?entityType=${encodeURIComponent(finalEntityType)}`,
+              "/fields",
             ];
 
+            let lastError;
             for (const url of attempts) {
               try {
+                console.log(`Trying custom fields endpoint: ${url}`);
                 return await pbFetch(url);
               } catch (err: any) {
-                // Continue to next attempt if this one fails
-                if (url === attempts[attempts.length - 1]) throw err;
+                lastError = err;
+                console.log(`Failed ${url}:`, err.message);
               }
             }
+
+            throw new Error(
+              `All custom field endpoints failed. Last error: ${lastError?.message}`,
+            );
           },
         }),
 
