@@ -106,11 +106,9 @@ Response style
           description: "List all Productboard products in the workspace.",
           inputSchema: z.object({ cursor: z.string().optional() }),
           execute: async ({ cursor }) => {
-            // Handle null cursor values properly
+            // Handle null cursor values and empty strings properly
             const url =
-              cursor && typeof cursor === "string" && cursor.length > 0
-                ? cursor
-                : "/products";
+              cursor && cursor.trim().length > 0 ? cursor : "/products";
             return pbFetch(url);
           },
         }),
@@ -414,7 +412,7 @@ Response style
           execute: async ({ cursor }) => {
             // Normalize cursor handling like other pagination tools
             const buildUrl = (c?: string | null): string => {
-              if (c && typeof c === "string" && c.length > 0) {
+              if (c && typeof c === "string" && c.trim().length > 0) {
                 // Handle cursor - could be full URL, path, or bare token
                 const isAbs = /^https?:\/\//i.test(c);
                 if (isAbs) return c;
@@ -438,7 +436,7 @@ Response style
           execute: async ({ cursor }) => {
             // Normalize cursor handling like in pb_list_features
             const buildUrl = (c?: string): string => {
-              if (c && typeof c === "string" && c.length > 0) {
+              if (c && typeof c === "string" && c.trim().length > 0) {
                 // Handle cursor - could be full URL, path, or bare token
                 const isAbs = /^https?:\/\//i.test(c);
                 if (isAbs) return c;
@@ -458,9 +456,7 @@ Response style
           inputSchema: z.object({ cursor: z.string().optional() }),
           execute: async ({ cursor }) => {
             const url =
-              cursor && typeof cursor === "string" && cursor.length > 0
-                ? cursor
-                : "/objectives";
+              cursor && cursor.trim().length > 0 ? cursor : "/objectives";
             return pbFetch(url);
           },
         }),
@@ -525,10 +521,7 @@ Response style
           description: "List all tags.",
           inputSchema: z.object({ cursor: z.string().optional() }),
           execute: async ({ cursor }) => {
-            const url =
-              cursor && typeof cursor === "string" && cursor.length > 0
-                ? cursor
-                : "/tags";
+            const url = cursor && cursor.trim().length > 0 ? cursor : "/tags";
             return pbFetch(url);
           },
         }),
