@@ -431,29 +431,21 @@ Response style
         // Productboard: list feature-release assignments
         pb_list_feature_release_assignments: tool({
           description:
-            "List feature-release assignments, optionally filtered by releaseId or featureId. Uses ProductBoard's default pagination (100 items per page).",
+            "List all feature-release assignments. Uses ProductBoard's default pagination (100 items per page). Filter results client-side by releaseId or featureId.",
           inputSchema: z.object({
-            releaseId: z.string().optional(),
-            featureId: z.string().optional(),
             cursor: z.string().optional(),
           }),
-          execute: async ({ releaseId, featureId, cursor }) => {
+          execute: async ({ cursor }) => {
             // Normalize cursor handling like in pb_list_features
             const buildUrl = (c?: string): string => {
-              if (c) {
+              if (c && typeof c === "string" && c.length > 0) {
                 // Handle cursor - could be full URL, path, or bare token
                 const isAbs = /^https?:\/\//i.test(c);
                 if (isAbs) return c;
                 if (c.startsWith("/")) return c;
                 return `/feature-release-assignments?pageCursor=${encodeURIComponent(c)}`;
               }
-
-              // Build initial URL with filters
-              const params = new URLSearchParams();
-              if (releaseId) params.set("releaseId", releaseId);
-              if (featureId) params.set("featureId", featureId);
-              const qs = params.toString();
-              return `/feature-release-assignments${qs ? `?${qs}` : ""}`;
+              return "/feature-release-assignments";
             };
 
             return pbFetch(buildUrl(cursor));
