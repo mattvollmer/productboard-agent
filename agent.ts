@@ -113,6 +113,7 @@ How to answer common questions
 Tooling rules
 - Use pagination when links.next is present by accepting/propagating cursor.
 - For features: call GET /features without unsupported query params and filter client-side (product, statusIds, limit).
+- For notes: use pb_list_notes_summary to browse/filter notes, then pb_get_note_details for specific notes you need full content from.
 - On errors, return the HTTP code and a concise explanation of what to try next.
 
 Output format
@@ -696,10 +697,10 @@ Output format
           },
         }),
 
-        // Productboard: list notes (insights)
-        pb_list_notes: tool({
+        // Productboard: list notes summary (optimized for browsing)
+        pb_list_notes_summary: tool({
           description:
-            "List notes. Optionally filter by featureId, tag, or updatedSince. Returns full PB response with pagination links.",
+            "List notes with minimal data for browsing - returns only essential metadata (ID, title, tags, dates, associated features/companies) without full content. Use pb_get_note_details to get full content for specific notes.",
           inputSchema: z.object({
             featureId: z.string().optional(),
             tag: z.string().optional(),
@@ -710,7 +711,37 @@ Output format
           execute: async ({ featureId, tag, updatedSince, limit, cursor }) => {
             // Handle cursor properly - empty strings and null values
             if (cursor && cursor.trim().length > 0) {
-              return pbFetch(cursor);
+              const response = await pbFetch(cursor);
+              // Strip content from paginated results
+              if (response.data) {
+                response.data = response.data.map((note: any) => ({
+                  id: note.id,
+                  title: note.title,
+                  state: note.state,
+                  tags: note.tags,
+                  createdAt: note.createdAt,
+                  updatedAt: note.updatedAt,
+                  source: note.source,
+                  company: note.company
+                    ? { id: note.company.id, name: note.company.name }
+                    : null,
+                  user: note.user
+                    ? { id: note.user.id, name: note.user.name }
+                    : null,
+                  features: note.features
+                    ? note.features.map((f: any) => ({
+                        id: f.id,
+                        name: f.name,
+                        importance: f.importance,
+                      }))
+                    : [],
+                  owner: note.owner
+                    ? { id: note.owner.id, name: note.owner.name }
+                    : null,
+                  // Explicitly omit content field
+                }));
+              }
+              return response;
             }
 
             const params = new URLSearchParams();
@@ -719,7 +750,52 @@ Output format
             if (updatedSince) params.set("updatedSince", updatedSince);
             if (limit) params.set("limit", String(limit));
             const qs = params.toString();
-            return pbFetch(`/notes${qs ? `?${qs}` : ""}`);
+            const response = await pbFetch(`/notes${qs ? `?${qs}` : ""}`);
+
+            // Strip content from initial results
+            if (response.data) {
+              response.data = response.data.map((note: any) => ({
+                id: note.id,
+                title: note.title,
+                state: note.state,
+                tags: note.tags,
+                createdAt: note.createdAt,
+                updatedAt: note.updatedAt,
+                source: note.source,
+                company: note.company
+                  ? { id: note.company.id, name: note.company.name }
+                  : null,
+                user: note.user
+                  ? { id: note.user.id, name: note.user.name }
+                  : null,
+                features: note.features
+                  ? note.features.map((f: any) => ({
+                      id: f.id,
+                      name: f.name,
+                      importance: f.importance,
+                    }))
+                  : [],
+                owner: note.owner
+                  ? { id: note.owner.id, name: note.owner.name }
+                  : null,
+                // Explicitly omit content field
+              }));
+            }
+            return response;
+          },
+        }),
+
+        // Productboard: get note details (full content)
+        pb_get_note_details: tool({
+          description:
+            "Get full details for a specific note by ID, including the complete content. Use this after browsing with pb_list_notes_summary to get the full text of specific notes you want to analyze.",
+          inputSchema: z.object({
+            noteId: z
+              .string()
+              .describe("The ID of the note to retrieve full details for"),
+          }),
+          execute: async ({ noteId }) => {
+            return pbFetch(`/notes/${noteId}`);
           },
         }),
 
