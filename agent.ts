@@ -120,7 +120,7 @@ Response style
         // Productboard: list features (client-side filtering + optional autopagination)
         pb_list_features: tool({
           description:
-            "List features with optional client-side filters. Defaults to product 'coder' when productId is omitted. Returns only essential fields to avoid context window issues.",
+            "List features with optional client-side filters. Defaults to product 'coder' when productId is omitted. Returns only essential fields (no descriptions) to minimize context window usage.",
           inputSchema: z.object({
             productId: z.string().optional(),
             statusIds: z.array(z.string()).optional(),
@@ -134,7 +134,6 @@ Response style
                 z.enum([
                   "id",
                   "name",
-                  "description",
                   "status",
                   "product",
                   "owner",
@@ -266,16 +265,6 @@ Response style
                     break;
                   case "name":
                     if (item.name) filtered.name = item.name;
-                    break;
-                  case "description":
-                    if (item.description) {
-                      // Truncate long descriptions to avoid context bloat
-                      const desc = String(item.description);
-                      filtered.description =
-                        desc.length > 500
-                          ? desc.substring(0, 500) + "..."
-                          : desc;
-                    }
                     break;
                   case "status":
                     if (item.status) {
