@@ -412,21 +412,32 @@ Response style
         // Productboard: list feature-release assignments
         pb_list_feature_release_assignments: tool({
           description:
-            "List feature-release assignments, optionally filtered by releaseId or featureId.",
+            "List feature-release assignments, optionally filtered by releaseId or featureId. Uses ProductBoard's default pagination (100 items per page).",
           inputSchema: z.object({
             releaseId: z.string().optional(),
             featureId: z.string().optional(),
             cursor: z.string().optional(),
-            limit: z.number().int().min(1).max(100).optional(),
           }),
-          execute: async ({ releaseId, featureId, cursor, limit }) => {
-            if (cursor) return pbFetch(cursor);
-            const params = new URLSearchParams();
-            if (releaseId) params.set("releaseId", releaseId);
-            if (featureId) params.set("featureId", featureId);
-            if (limit) params.set("limit", String(limit));
-            const qs = params.toString();
-            return pbFetch(`/feature-release-assignments${qs ? `?${qs}` : ""}`);
+          execute: async ({ releaseId, featureId, cursor }) => {
+            // Normalize cursor handling like in pb_list_features
+            const buildUrl = (c?: string): string => {
+              if (c) {
+                // Handle cursor - could be full URL, path, or bare token
+                const isAbs = /^https?:\/\//i.test(c);
+                if (isAbs) return c;
+                if (c.startsWith("/")) return c;
+                return `/feature-release-assignments?pageCursor=${encodeURIComponent(c)}`;
+              }
+
+              // Build initial URL with filters
+              const params = new URLSearchParams();
+              if (releaseId) params.set("releaseId", releaseId);
+              if (featureId) params.set("featureId", featureId);
+              const qs = params.toString();
+              return `/feature-release-assignments${qs ? `?${qs}` : ""}`;
+            };
+
+            return pbFetch(buildUrl(cursor));
           },
         }),
 
