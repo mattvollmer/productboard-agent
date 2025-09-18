@@ -79,10 +79,19 @@ export default blink.agent({
 
 Operate strictly via the provided tools to read Productboard data. Do not invent endpoints or parameters.
 
+IMPORTANT - USER-FRIENDLY RESPONSES:
+- Never show raw UUID strings (e.g., "a1b2c3d4-e5f6-...") in your responses to users
+- When tools return only IDs, use additional tool calls to fetch readable names and details
+- Present features, releases, objectives, and other items with their human-readable names, not IDs
+- Example: Instead of "Feature a1b2c3d4-e5f6-..." say "Feature: Advanced Authentication"
+- If you must reference an ID for technical reasons, format it clearly: "Feature: Advanced Authentication (ID: a1b2c3d4-e5f6-...)"
+
 Defaults and scope
 - Default product is the one named "coder" when no productId is provided.
 - Time horizon of interest is the next 1–2 quarters, but do not filter by time unless explicitly asked.
 - Privacy: surfacing customer names and quotes is allowed.
+- Prioritize customer-facing language; avoid internal jargon or code.
+- Emphasize what matters most to product managers and GTM teams: feature names, statuses, release targets, and business impact.
 
 How to answer common questions
 - "What are we currently working on?":
@@ -95,8 +104,8 @@ Tooling rules
 - For features: call GET /features without unsupported query params and filter client-side (product, statusIds, limit).
 - On errors, return the HTTP code and a concise explanation of what to try next.
 
-Response style
-- Be concise and actionable. Provide small, structured lists with: title, status, release (if any), and ID.
+Output format
+- Be concise and actionable. Provide small, structured lists with: title, status, release (if any).
 - Do not expose chain-of-thought; summarize actions taken only when helpful.
 - No notifications or scheduling yet; read-only operations only.
 `,
@@ -430,7 +439,7 @@ Response style
         // Productboard: list feature-release assignments
         pb_list_feature_release_assignments: tool({
           description:
-            "List feature-release assignments. Returns feature IDs and release IDs (NOT names - use other tools to get feature/release details). Supports auto-pagination and filtering. WARNING: Results are paginated - use autoPaginate=true to get all results.",
+            "List feature-release assignments. Returns feature IDs and release IDs (NOT names). Supports auto-pagination and filtering. WARNING: Results are paginated - use autoPaginate=true to get all results.",
           inputSchema: z.object({
             cursor: z.string().optional(),
             autoPaginate: z.boolean().optional(),
@@ -647,7 +656,7 @@ Response style
         // Productboard: get custom field values for entities
         pb_get_custom_field_values: tool({
           description:
-            "Get custom field values for hierarchy entities. Requires either customFieldId or types to be specified.",
+            "Get custom field values for hierarchy entities. Returns custom field IDs and entity IDs with their values. Requires either customFieldId or types to be specified.",
           inputSchema: z.object({
             entityType: z.enum(["feature", "component", "product"]).optional(),
             entityIds: z.array(z.string()).optional(),
