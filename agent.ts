@@ -524,84 +524,28 @@ Response style
           },
         }),
 
-        // Productboard: list tags
-        pb_list_tags: tool({
-          description: "List all tags. Testing different endpoint variations.",
-          inputSchema: z.object({ cursor: z.string().optional() }),
-          execute: async ({ cursor }) => {
-            // Handle cursor properly first
-            if (cursor && cursor.trim().length > 0) {
-              return pbFetch(cursor);
-            }
-
-            // Test different possible endpoints for tags
-            const tagEndpoints = [
-              "/tags",
-              "/labels",
-              "/tag",
-              "/note-tags",
-              "/notes/tags",
-            ];
-
-            let lastError;
-            for (const endpoint of tagEndpoints) {
-              try {
-                console.log(`Trying tags endpoint: ${endpoint}`);
-                return await pbFetch(endpoint);
-              } catch (error) {
-                lastError = error;
-                console.log(`Failed ${endpoint}:`, error.message);
-              }
-            }
-
-            throw new Error(
-              `All tag endpoints failed. Last error: ${lastError?.message}`,
-            );
-          },
-        }),
-
         // Productboard: list custom fields (requires type string per PB docs)
         pb_list_custom_fields: tool({
           description:
-            "List custom field definitions. Requires entityType parameter - will default to 'feature' if not provided.",
+            "List custom field definitions. Optional entityType parameter for filtering.",
           inputSchema: z.object({
-            type: z.string().optional(),
             entityType: z.string().optional(),
             cursor: z.string().optional(),
           }),
-          execute: async ({ type, entityType, cursor }) => {
+          execute: async ({ entityType, cursor }) => {
             // Handle cursor properly - empty strings and null values
             if (cursor && cursor.trim().length > 0) {
               return pbFetch(cursor);
             }
 
-            // Always provide an entityType - custom fields seem to require it
-            const finalEntityType = entityType || type || "feature";
-
-            // Try the most likely correct endpoint first
-            const attempts = [
-              `/custom-fields?entityType=${encodeURIComponent(finalEntityType)}`,
-              `/custom-fields?type=${encodeURIComponent(finalEntityType)}`,
-              `/custom-fields`,
-              "/customfields", // Alternative naming
-              `/fields?entityType=${encodeURIComponent(finalEntityType)}`,
-              "/fields",
-            ];
-
-            let lastError;
-            for (const url of attempts) {
-              try {
-                console.log(`Trying custom fields endpoint: ${url}`);
-                return await pbFetch(url);
-              } catch (err: any) {
-                lastError = err;
-                console.log(`Failed ${url}:`, err.message);
-              }
+            // Use the standard endpoint - ProductBoard docs show /custom-fields exists
+            if (entityType) {
+              return pbFetch(
+                `/custom-fields?entityType=${encodeURIComponent(entityType)}`,
+              );
+            } else {
+              return pbFetch("/custom-fields");
             }
-
-            throw new Error(
-              `All custom field endpoints failed. Last error: ${lastError?.message}`,
-            );
           },
         }),
 
@@ -638,6 +582,25 @@ Response style
                 params.append("customFieldId", cf);
             if (limit) params.set("limit", String(limit));
             return pbFetch(`/custom-fields/values?${params.toString()}`);
+          },
+        }),
+
+        // Productboard: get tags for a specific note
+        pb_get_note_tags: tool({
+          description:
+            "Get tags for a specific note. ProductBoard tags are note-specific, not global.",
+          inputSchema: z.object({
+            noteId: z.string(),
+            cursor: z.string().optional(),
+          }),
+          execute: async ({ noteId, cursor }) => {
+            // Handle cursor properly first
+            if (cursor && cursor.trim().length > 0) {
+              return pbFetch(cursor);
+            }
+
+            // Use the correct ProductBoard API endpoint
+            return pbFetch(`/notes/${encodeURIComponent(noteId)}/tags`);
           },
         }),
       },
