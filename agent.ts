@@ -461,42 +461,6 @@ Response style
           },
         }),
 
-        // Productboard: list links (relations between entities)
-        pb_list_links: tool({
-          description:
-            "List links between entities (e.g., objective->feature, initiative->feature). Provide fromType/toType and fromId or toId.",
-          inputSchema: z.object({
-            fromType: z.enum(["feature", "initiative", "objective"]).optional(),
-            toType: z.enum(["feature", "initiative", "objective"]).optional(),
-            fromId: z.string().optional(),
-            toId: z.string().optional(),
-            cursor: z.string().optional(),
-            limit: z.number().int().min(1).max(100).optional(),
-          }),
-          execute: async ({
-            fromType,
-            toType,
-            fromId,
-            toId,
-            cursor,
-            limit,
-          }) => {
-            // Handle cursor properly - empty strings and null values
-            if (cursor && cursor.trim().length > 0) {
-              return pbFetch(cursor);
-            }
-
-            if (!fromId && !toId) throw new Error("fromId or toId is required");
-            const params = new URLSearchParams();
-            if (fromType) params.set("fromType", fromType);
-            if (toType) params.set("toType", toType);
-            if (fromId) params.set("fromId", fromId);
-            if (toId) params.set("toId", toId);
-            if (limit) params.set("limit", String(limit));
-            return pbFetch(`/links?${params.toString()}`);
-          },
-        }),
-
         // Productboard: list notes (insights)
         pb_list_notes: tool({
           description:
