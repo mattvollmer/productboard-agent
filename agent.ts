@@ -430,18 +430,26 @@ Response style
         // Productboard: list feature-release assignments
         pb_list_feature_release_assignments: tool({
           description:
-            "List feature-release assignments. Supports auto-pagination to ensure all assignments are found. WARNING: Results are paginated - use autoPaginate=true to get all results or manually handle cursor for pagination.",
+            "List feature-release assignments. Returns feature IDs and release IDs (NOT names - use other tools to get feature/release details). Supports auto-pagination and filtering. WARNING: Results are paginated - use autoPaginate=true to get all results.",
           inputSchema: z.object({
             cursor: z.string().optional(),
             autoPaginate: z.boolean().optional(),
             maxPages: z.number().int().min(1).max(10).optional(),
             limit: z.number().int().min(1).max(100).optional(),
+            featureId: z.string().optional(),
+            releaseId: z.string().optional(),
+            releaseState: z
+              .enum(["upcoming", "in-progress", "completed"])
+              .optional(),
           }),
           execute: async ({
             cursor,
             autoPaginate = true,
             maxPages = 5,
             limit = 100,
+            featureId,
+            releaseId,
+            releaseState,
           }) => {
             const matches: any[] = [];
             let next: string | undefined = cursor;
@@ -458,7 +466,15 @@ Response style
                 if (c.startsWith("/")) return c;
                 return `/feature-release-assignments?pageCursor=${encodeURIComponent(c)}`;
               }
-              return "/feature-release-assignments";
+
+              // Build base URL with query parameters
+              const params = new URLSearchParams();
+              if (featureId) params.set("feature.id", featureId);
+              if (releaseId) params.set("release.id", releaseId);
+              if (releaseState) params.set("release.state", releaseState);
+
+              const queryString = params.toString();
+              return `/feature-release-assignments${queryString ? `?${queryString}` : ""}`;
             };
 
             const shouldContinue = () => {
@@ -472,7 +488,11 @@ Response style
             // Fetch pages
             do {
               try {
-                const resp = await pbFetch(buildUrl(next));
+                const resp = await pbFetch(buildUrl(next), {
+                  headers: {
+                    "X-Version": "1",
+                  },
+                });
                 lastResp = resp;
 
                 // Validate response structure
@@ -525,6 +545,11 @@ Response style
                 max_pages: maxPages,
                 limit: limit,
                 next_cursor: lastResp?.links?.next || null,
+                filters_applied: {
+                  featureId: featureId || null,
+                  releaseId: releaseId || null,
+                  releaseState: releaseState || null,
+                },
               },
             };
 
