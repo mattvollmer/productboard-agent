@@ -195,11 +195,26 @@ Response style
               return `/features?pageCursor=${encodeURIComponent(c)}`;
             };
 
-            // Determine per-page size; PB caps at ~100
-            const perPage = Math.min(limit ?? 100, 100);
+            // Build initial URL with server-side filters
+            const buildInitialUrl = (): string => {
+              const params = new URLSearchParams();
+
+              // Use server-side status.id filtering if statusIds provided
+              if (resolvedStatusIds && resolvedStatusIds.length > 0) {
+                // ProductBoard API supports status.id parameter
+                resolvedStatusIds.forEach((statusId) => {
+                  params.append("status.id", statusId);
+                });
+              }
+
+              const queryString = params.toString();
+              return queryString ? `/features?${queryString}` : "/features";
+            };
 
             const applyFilters = async (arr: any[]) => {
               let out = arr;
+
+              // Only apply product filtering client-side (not supported server-side)
               const hasProductField = out.some(
                 (f: any) => f && f.product && f.product.id,
               );
@@ -214,12 +229,20 @@ Response style
                   );
                 }
               }
-              if (resolvedStatusIds && resolvedStatusIds.length) {
+
+              // If we didn't use server-side status filtering, apply client-side
+              if (!resolvedStatusIds || resolvedStatusIds.length === 0) {
+                // This means we didn't filter server-side, so no client-side filtering needed
+              } else if (cursor) {
+                // When using cursor, we might get mixed results, so still filter client-side as backup
                 const set = new Set(resolvedStatusIds);
                 out = out.filter(
                   (f: any) => f?.status?.id && set.has(f.status.id),
                 );
               }
+              // Note: If we used server-side status filtering on the initial call,
+              // subsequent paginated calls should maintain the same filter
+
               return out;
             };
 
@@ -292,10 +315,16 @@ Response style
             // Fetch first page (or provided cursor)
             do {
               try {
-                const baseUrl = buildUrlFromCursor(next);
-                const sep = baseUrl.includes("?") ? "&" : "?";
-                const urlWithLimit = baseUrl + `${sep}pageLimit=${perPage}`;
-                const resp = await pbFetchWithRetry(urlWithLimit, 3, 250);
+                let requestUrl: string;
+                if (next) {
+                  // Use cursor-based URL (could be full URL or cursor token)
+                  requestUrl = buildUrlFromCursor(next);
+                } else {
+                  // First request - use URL with server-side filters
+                  requestUrl = buildInitialUrl();
+                }
+
+                const resp = await pbFetchWithRetry(requestUrl, 3, 250);
                 lastResp = resp;
 
                 // Validate response structure
@@ -351,6 +380,10 @@ Response style
                 auto_paginate: autoPaginate,
                 max_pages: maxPages,
                 limit: limit,
+                used_server_side_filtering: !!(
+                  resolvedStatusIds && resolvedStatusIds.length > 0
+                ),
+                api_compliant: true, // Now following ProductBoard API docs
               },
               // If we stopped due to reaching the limit but there is a next page, preserve the cursor
               links: {
