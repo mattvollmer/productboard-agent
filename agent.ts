@@ -106,7 +106,12 @@ Response style
           description: "List all Productboard products in the workspace.",
           inputSchema: z.object({ cursor: z.string().optional() }),
           execute: async ({ cursor }) => {
-            return pbFetch(cursor ?? "/products");
+            // Handle null cursor values properly
+            const url =
+              cursor && typeof cursor === "string" && cursor.length > 0
+                ? cursor
+                : "/products";
+            return pbFetch(url);
           },
         }),
 
@@ -406,7 +411,21 @@ Response style
         pb_list_releases: tool({
           description: "List releases (optionally paginate).",
           inputSchema: z.object({ cursor: z.string().optional() }),
-          execute: async ({ cursor }) => pbFetch(cursor ?? "/releases"),
+          execute: async ({ cursor }) => {
+            // Normalize cursor handling like other pagination tools
+            const buildUrl = (c?: string | null): string => {
+              if (c && typeof c === "string" && c.length > 0) {
+                // Handle cursor - could be full URL, path, or bare token
+                const isAbs = /^https?:\/\//i.test(c);
+                if (isAbs) return c;
+                if (c.startsWith("/")) return c;
+                return `/releases?pageCursor=${encodeURIComponent(c)}`;
+              }
+              return "/releases";
+            };
+
+            return pbFetch(buildUrl(cursor));
+          },
         }),
 
         // Productboard: list feature-release assignments
@@ -445,7 +464,13 @@ Response style
         pb_list_objectives: tool({
           description: "List all objectives.",
           inputSchema: z.object({ cursor: z.string().optional() }),
-          execute: async ({ cursor }) => pbFetch(cursor ?? "/objectives"),
+          execute: async ({ cursor }) => {
+            const url =
+              cursor && typeof cursor === "string" && cursor.length > 0
+                ? cursor
+                : "/objectives";
+            return pbFetch(url);
+          },
         }),
 
         // Productboard: list links (relations between entities)
@@ -507,7 +532,13 @@ Response style
         pb_list_tags: tool({
           description: "List all tags.",
           inputSchema: z.object({ cursor: z.string().optional() }),
-          execute: async ({ cursor }) => pbFetch(cursor ?? "/tags"),
+          execute: async ({ cursor }) => {
+            const url =
+              cursor && typeof cursor === "string" && cursor.length > 0
+                ? cursor
+                : "/tags";
+            return pbFetch(url);
+          },
         }),
 
         // Productboard: list custom fields (requires type string per PB docs)
