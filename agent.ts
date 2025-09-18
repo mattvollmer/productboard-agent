@@ -94,10 +94,11 @@ IMPORTANT - USER-FRIENDLY RESPONSES:
 
 Defaults and scope
 - Default product is the one named "coder" when no productId is provided.
+- Access to features, releases, statuses, and companies data from Productboard.
 - Time horizon of interest is the next 1–2 quarters, but do not filter by time unless explicitly asked.
 - Privacy: surfacing customer names and quotes is allowed.
 - Prioritize customer-facing language; avoid internal jargon or code.
-- Emphasize what matters most to product managers and GTM teams: feature names, statuses, release targets, and business impact.
+- Emphasize what matters most to product managers and GTM teams: feature names, statuses, release targets, business impact, and customer insights.
 
 How to answer common questions
 - "What are we currently working on?":
@@ -197,6 +198,55 @@ Output format
           description: "List all feature statuses (workspace taxonomy).",
           inputSchema: z.object({}),
           execute: async () => pbFetch("/feature-statuses"),
+        }),
+
+        // Productboard: list companies
+        pb_list_companies: tool({
+          description:
+            "List all companies with optional filtering and pagination. Supports search by name, filtering by notes association, and feature association.",
+          inputSchema: z.object({
+            pageLimit: z.number().int().min(1).max(100).optional(),
+            pageOffset: z.number().int().min(0).optional(),
+            term: z
+              .string()
+              .optional()
+              .describe("Search term to filter companies by name"),
+            hasNotes: z
+              .boolean()
+              .optional()
+              .describe(
+                "Filter companies by whether they have notes (true) or not (false)",
+              ),
+            featureId: z
+              .string()
+              .optional()
+              .describe(
+                "Filter companies associated with a specific feature ID",
+              ),
+          }),
+          execute: async ({
+            pageLimit = 100,
+            pageOffset = 0,
+            term,
+            hasNotes,
+            featureId,
+          }) => {
+            const params = new URLSearchParams();
+            params.append("pageLimit", pageLimit.toString());
+            params.append("pageOffset", pageOffset.toString());
+
+            if (term) params.append("term", term);
+            if (hasNotes !== undefined)
+              params.append("hasNotes", hasNotes.toString());
+            if (featureId) params.append("featureId", featureId);
+
+            const queryString = params.toString();
+            const url = queryString
+              ? `/companies?${queryString}`
+              : "/companies";
+
+            return pbFetch(url);
+          },
         }),
 
         // Productboard: list features (client-side filtering + optional autopagination)
