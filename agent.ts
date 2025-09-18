@@ -481,7 +481,11 @@ Response style
             cursor,
             limit,
           }) => {
-            if (cursor) return pbFetch(cursor);
+            // Handle cursor properly - empty strings and null values
+            if (cursor && cursor.trim().length > 0) {
+              return pbFetch(cursor);
+            }
+
             if (!fromId && !toId) throw new Error("fromId or toId is required");
             const params = new URLSearchParams();
             if (fromType) params.set("fromType", fromType);
@@ -505,7 +509,11 @@ Response style
             cursor: z.string().optional(),
           }),
           execute: async ({ featureId, tag, updatedSince, limit, cursor }) => {
-            if (cursor) return pbFetch(cursor);
+            // Handle cursor properly - empty strings and null values
+            if (cursor && cursor.trim().length > 0) {
+              return pbFetch(cursor);
+            }
+
             const params = new URLSearchParams();
             if (featureId) params.set("featureId", featureId);
             if (tag) params.set("tag", tag);
@@ -536,31 +544,26 @@ Response style
             cursor: z.string().optional(),
           }),
           execute: async ({ type, entityType, cursor }) => {
-            if (cursor) return pbFetch(cursor);
+            // Handle cursor properly - empty strings and null values
+            if (cursor && cursor.trim().length > 0) {
+              return pbFetch(cursor);
+            }
+
             const t = type ?? entityType ?? "feature";
             const attempts = [
               `/custom-fields?type=${encodeURIComponent(t)}`,
               `/custom-fields?entityType=${encodeURIComponent(t)}`,
               `/custom-fields`,
             ];
-            const tried: string[] = [];
-            let lastErr: any;
+
             for (const url of attempts) {
-              tried.push(url);
               try {
-                const res = await pbFetchWithRetry(url, 3, 250);
-                return { ...res, meta: { variant: url, tried } };
-              } catch (err) {
-                lastErr = err;
+                return await pbFetch(url);
+              } catch (err: any) {
+                // Continue to next attempt if this one fails
+                if (url === attempts[attempts.length - 1]) throw err;
               }
             }
-            const msg =
-              lastErr instanceof Error ? lastErr.message : String(lastErr);
-            throw new Error(
-              `Failed to list custom fields after attempts: ${tried.join(
-                ", ",
-              )} -> ${msg}`,
-            );
           },
         }),
 
@@ -584,7 +587,11 @@ Response style
             limit,
             cursor,
           }) => {
-            if (cursor) return pbFetch(cursor);
+            // Handle cursor properly - empty strings and null values
+            if (cursor && cursor.trim().length > 0) {
+              return pbFetch(cursor);
+            }
+
             const params = new URLSearchParams();
             params.set("entityType", entityType);
             for (const id of entityIds) params.append("entityId", id);
