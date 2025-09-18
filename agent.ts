@@ -576,21 +576,30 @@ Response style
         // Productboard: get custom field values for entities
         pb_get_custom_field_values: tool({
           description:
-            "Get custom field values for specific entities (e.g., features). Provide entityType and entityIds; optionally customFieldIds.",
+            "Get custom field values for hierarchy entities. Requires either customFieldId or types to be specified.",
           inputSchema: z.object({
-            entityType: z
-              .enum(["feature", "initiative", "objective", "product"])
-              .default("feature"),
-            entityIds: z.array(z.string()).min(1),
-            customFieldIds: z.array(z.string()).optional(),
-            limit: z.number().int().min(1).max(100).optional(),
+            entityType: z.enum(["feature", "component", "product"]).optional(),
+            entityIds: z.array(z.string()).optional(),
+            customFieldId: z.string().optional(),
+            types: z
+              .array(
+                z.enum([
+                  "text",
+                  "custom-description",
+                  "number",
+                  "dropdown",
+                  "multi-dropdown",
+                  "member",
+                ]),
+              )
+              .optional(),
             cursor: z.string().optional(),
           }),
           execute: async ({
             entityType,
             entityIds,
-            customFieldIds,
-            limit,
+            customFieldId,
+            types,
             cursor,
           }) => {
             // Handle cursor properly - empty strings and null values
@@ -598,14 +607,38 @@ Response style
               return pbFetch(cursor);
             }
 
+            // Build query parameters - either customField.id or type is required
             const params = new URLSearchParams();
-            params.set("entityType", entityType);
-            for (const id of entityIds) params.append("entityId", id);
-            if (customFieldIds)
-              for (const cf of customFieldIds)
-                params.append("customFieldId", cf);
-            if (limit) params.set("limit", String(limit));
-            return pbFetch(`/custom-fields/values?${params.toString()}`);
+
+            if (customFieldId) {
+              params.set("customField.id", customFieldId);
+            } else {
+              // Default to all types if no customFieldId specified (required parameter)
+              const fieldTypes = types || [
+                "text",
+                "custom-description",
+                "number",
+                "dropdown",
+                "multi-dropdown",
+                "member",
+              ];
+              fieldTypes.forEach((type) => params.append("type", type));
+            }
+
+            // Add hierarchyEntity.id filters if provided
+            if (entityIds && entityIds.length > 0) {
+              entityIds.forEach((id) =>
+                params.append("hierarchyEntity.id", id),
+              );
+            }
+
+            // Use correct endpoint with required X-Version header
+            const url = `/hierarchy-entities/custom-fields-values?${params.toString()}`;
+            return pbFetch(url, {
+              headers: {
+                "X-Version": "1",
+              },
+            });
           },
         }),
       },
