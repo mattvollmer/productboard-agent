@@ -40,7 +40,7 @@ async function getDefaultCoderProductId(): Promise<string> {
   const data = await pbFetch("/products");
   const products = Array.isArray(data?.data) ? data.data : [];
   const coder = products.find(
-    (p: any) => (p?.name || "").toLowerCase() === "coder",
+    (p: any) => (p?.name || "").toLowerCase() === "coder"
   );
   if (!coder)
     throw new Error("Default product 'coder' not found in Productboard");
@@ -56,7 +56,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 async function pbFetchWithRetry(
   input: string | URL,
   attempts = 3,
-  baseDelayMs = 250,
+  baseDelayMs = 250
 ) {
   let lastErr: any;
   for (let i = 0; i < attempts; i++) {
@@ -73,7 +73,8 @@ async function pbFetchWithRetry(
 export default blink.agent({
   async sendMessages({ messages }) {
     return streamText({
-      model: "openai/gpt-5-mini",
+      // model: "openai/gpt-5-mini",
+      model: "anthropic/claude-sonnet-4",
       system: `You are the Productboard data assistant for Coder's GTM and product teams.
 
 Operate strictly via the provided tools to read Productboard data. Do not invent endpoints or parameters.
@@ -143,7 +144,7 @@ Response style
                   "createdAt",
                   "updatedAt",
                   "all",
-                ]),
+                ])
               )
               .optional(),
           }),
@@ -172,12 +173,12 @@ Response style
                 ? statusResp.data
                 : [];
               const wanted = new Set(
-                statusNames.map((s: string) => s.toLowerCase()),
+                statusNames.map((s: string) => s.toLowerCase())
               );
               resolvedStatusIds = allStatuses
                 .filter(
                   (st: any) =>
-                    st?.name && wanted.has(String(st.name).toLowerCase()),
+                    st?.name && wanted.has(String(st.name).toLowerCase())
                 )
                 .map((st: any) => String(st.id));
             }
@@ -218,7 +219,7 @@ Response style
 
               // Only apply product filtering client-side (not supported server-side)
               const hasProductField = out.some(
-                (f: any) => f && f.product && f.product.id,
+                (f: any) => f && f.product && f.product.id
               );
               if (hasProductField) {
                 const targetProductId =
@@ -227,7 +228,7 @@ Response style
                     (defaultCoderProductId = await getDefaultCoderProductId()));
                 if (targetProductId) {
                   out = out.filter(
-                    (f: any) => f?.product?.id === targetProductId,
+                    (f: any) => f?.product?.id === targetProductId
                   );
                 }
               }
@@ -239,7 +240,7 @@ Response style
                 // When using cursor, we might get mixed results, so still filter client-side as backup
                 const set = new Set(resolvedStatusIds);
                 out = out.filter(
-                  (f: any) => f?.status?.id && set.has(f.status.id),
+                  (f: any) => f?.status?.id && set.has(f.status.id)
                 );
               }
               // Note: If we used server-side status filtering on the initial call,
@@ -324,7 +325,7 @@ Response style
                   hasError = true;
                   console.warn(
                     `Invalid response structure from ProductBoard API:`,
-                    resp,
+                    resp
                   );
                   break;
                 }
@@ -441,7 +442,9 @@ Response style
                 const isAbs = /^https?:\/\//i.test(c);
                 if (isAbs) return c;
                 if (c.startsWith("/")) return c;
-                return `/feature-release-assignments?pageCursor=${encodeURIComponent(c)}`;
+                return `/feature-release-assignments?pageCursor=${encodeURIComponent(
+                  c
+                )}`;
               }
               return "/feature-release-assignments";
             };
@@ -502,7 +505,7 @@ Response style
                   "dropdown",
                   "multi-dropdown",
                   "member",
-                ]),
+                ])
               )
               .optional(),
             cursor: z.string().optional(),
@@ -554,7 +557,7 @@ Response style
                   "dropdown",
                   "multi-dropdown",
                   "member",
-                ]),
+                ])
               )
               .optional(),
             cursor: z.string().optional(),
@@ -592,7 +595,7 @@ Response style
             // Add hierarchyEntity.id filters if provided
             if (entityIds && entityIds.length > 0) {
               entityIds.forEach((id) =>
-                params.append("hierarchyEntity.id", id),
+                params.append("hierarchyEntity.id", id)
               );
             }
 
