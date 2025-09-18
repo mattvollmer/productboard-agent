@@ -709,50 +709,23 @@ Output format
             cursor: z.string().optional(),
           }),
           execute: async ({ featureId, tag, updatedSince, limit, cursor }) => {
-            // Handle cursor properly - empty strings and null values
+            // Handle cursor properly - use same pattern as other working tools
+            let url;
             if (cursor && cursor.trim().length > 0) {
-              const response = await pbFetch(cursor);
-              // Strip content from paginated results
-              if (response.data) {
-                response.data = response.data.map((note: any) => ({
-                  id: note.id,
-                  title: note.title,
-                  state: note.state,
-                  tags: note.tags,
-                  createdAt: note.createdAt,
-                  updatedAt: note.updatedAt,
-                  source: note.source,
-                  company: note.company
-                    ? { id: note.company.id, name: note.company.name }
-                    : null,
-                  user: note.user
-                    ? { id: note.user.id, name: note.user.name }
-                    : null,
-                  features: note.features
-                    ? note.features.map((f: any) => ({
-                        id: f.id,
-                        name: f.name,
-                        importance: f.importance,
-                      }))
-                    : [],
-                  owner: note.owner
-                    ? { id: note.owner.id, name: note.owner.name }
-                    : null,
-                  // Explicitly omit content field
-                }));
-              }
-              return response;
+              url = cursor;
+            } else {
+              const params = new URLSearchParams();
+              if (featureId) params.set("featureId", featureId);
+              if (tag) params.set("tag", tag);
+              if (updatedSince) params.set("updatedSince", updatedSince);
+              if (limit) params.set("limit", String(limit));
+              const qs = params.toString();
+              url = `/notes${qs ? `?${qs}` : ""}`;
             }
 
-            const params = new URLSearchParams();
-            if (featureId) params.set("featureId", featureId);
-            if (tag) params.set("tag", tag);
-            if (updatedSince) params.set("updatedSince", updatedSince);
-            if (limit) params.set("limit", String(limit));
-            const qs = params.toString();
-            const response = await pbFetch(`/notes${qs ? `?${qs}` : ""}`);
+            const response = await pbFetch(url);
 
-            // Strip content from initial results
+            // Strip content from all results (both initial and paginated)
             if (response.data) {
               response.data = response.data.map((note: any) => ({
                 id: note.id,
