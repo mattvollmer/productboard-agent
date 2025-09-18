@@ -113,7 +113,7 @@ How to answer common questions
 Tooling rules
 - Use pagination when links.next is present by accepting/propagating cursor.
 - For features: call GET /features without unsupported query params and filter client-side (product, statusIds, limit).
-- For notes: use pb_list_notes_summary to browse/filter notes, then pb_get_note_details for specific notes you need full content from.
+- For notes: use pb_list_notes_summary to browse/filter notes (supports server-side companyId filtering), then pb_get_note_details for specific notes you need full content from.
 - On errors, return the HTTP code and a concise explanation of what to try next.
 
 Output format
@@ -700,72 +700,119 @@ Output format
         // Productboard: list notes summary (optimized for browsing)
         pb_list_notes_summary: tool({
           description:
-            "List notes with minimal data for browsing - returns only essential metadata (ID, title, tags, dates, associated features/companies) without full content. Use pb_get_note_details to get full content for specific notes.",
+            "List notes with minimal data for browsing - returns only essential metadata (ID, title, tags, dates, associated features/companies) without full content. Use pb_get_note_details to get full content for specific notes. Supports server-side filtering by companyId.",
           inputSchema: z.object({
             featureId: z.string().optional(),
-            tag: z.string().optional(),
-            updatedSince: z.string().optional(), // ISO8601
-            limit: z.number().int().min(1).max(100).optional(),
-            cursor: z.string().optional(),
+            companyId: z
+              .string()
+              .optional()
+              .describe("Filter notes by specific company ID"),
+            anyTag: z
+              .string()
+              .optional()
+              .describe(
+                "Comma-separated list of tags (notes with any of these tags)",
+              ),
+            allTags: z
+              .string()
+              .optional()
+              .describe(
+                "Comma-separated list of tags (notes with all of these tags)",
+              ),
+            updatedFrom: z
+              .string()
+              .optional()
+              .describe("ISO date - notes updated since this date"),
+            updatedTo: z
+              .string()
+              .optional()
+              .describe("ISO date - notes updated before this date"),
+            createdFrom: z
+              .string()
+              .optional()
+              .describe("ISO date - notes created since this date"),
+            createdTo: z
+              .string()
+              .optional()
+              .describe("ISO date - notes created before this date"),
+            term: z.string().optional().describe("Fulltext search term"),
+            source: z.string().optional().describe("Filter by source origin"),
+            ownerEmail: z.string().optional().describe("Filter by owner email"),
+            pageLimit: z.number().int().min(1).max(2000).optional(),
+            pageCursor: z
+              .string()
+              .optional()
+              .describe("Pagination cursor from previous response"),
           }),
-          execute: async ({ featureId, tag, updatedSince, limit, cursor }) => {
-            // Handle cursor properly - use same pattern as other working tools
+          execute: async ({
+            featureId,
+            companyId,
+            anyTag,
+            allTags,
+            updatedFrom,
+            updatedTo,
+            createdFrom,
+            createdTo,
+            term,
+            source,
+            ownerEmail,
+            pageLimit = 100,
+            pageCursor,
+          }) => {
+            // Use pageCursor directly if provided (correct parameter name)
             let url;
-            if (cursor && cursor.trim().length > 0) {
-              // Validate cursor format - should be a URL or path
-              if (cursor.startsWith('/') || cursor.startsWith('http')) {
-                url = cursor;
-              } else {
-                // Treat as cursor parameter for /notes endpoint
-                url = `/notes?cursor=${encodeURIComponent(cursor)}`;
-              }
+            if (pageCursor && pageCursor.trim().length > 0) {
+              url = `/notes?pageCursor=${encodeURIComponent(pageCursor)}`;
             } else {
               const params = new URLSearchParams();
               if (featureId) params.set("featureId", featureId);
-              if (tag) params.set("tag", tag);
-              if (updatedSince) params.set("updatedSince", updatedSince);
-              if (limit) params.set("limit", String(limit));
+              if (companyId) params.set("companyId", companyId);
+              if (anyTag) params.set("anyTag", anyTag);
+              if (allTags) params.set("allTags", allTags);
+              if (updatedFrom) params.set("updatedFrom", updatedFrom);
+              if (updatedTo) params.set("updatedTo", updatedTo);
+              if (createdFrom) params.set("createdFrom", createdFrom);
+              if (createdTo) params.set("createdTo", createdTo);
+              if (term) params.set("term", term);
+              if (source) params.set("source", source);
+              if (ownerEmail) params.set("ownerEmail", ownerEmail);
+              if (pageLimit) params.set("pageLimit", String(pageLimit));
               const qs = params.toString();
               url = `/notes${qs ? `?${qs}` : ""}`;
             }
 
-            try {
-              const response = await pbFetch(url);
-              
-              // Strip content from all results (both initial and paginated)
-              if (response.data) {
-                response.data = response.data.map((note: any) => ({
-                  id: note.id,
-                  title: note.title,
-                  state: note.state,
-                  tags: note.tags,
-                  createdAt: note.createdAt,
-                  updatedAt: note.updatedAt,
-                  source: note.source,
-                  company: note.company
-                    ? { id: note.company.id, name: note.company.name }
-                    : null,
-                  user: note.user
-                    ? { id: note.user.id, name: note.user.name }
-                    : null,
-                  features: note.features
-                    ? note.features.map((f: any) => ({
-                        id: f.id,
-                        name: f.name,
-                        importance: f.importance,
-                      }))
-                    : [],
-                  owner: note.owner
-                    ? { id: note.owner.id, name: note.owner.name }
-                    : null,
-                  // Explicitly omit content field
-                }));
-              }
-              return response;
-            } catch (error) {
-              // Enhanced error reporting
-              throw new Error(`Failed to fetch notes with URL: ${url}. Original error: ${error}`);
+            const response = await pbFetch(url);
+
+            // Strip content from all results (both initial and paginated)
+            if (response.data) {
+              response.data = response.data.map((note: any) => ({
+                id: note.id,
+                title: note.title,
+                state: note.state,
+                tags: note.tags,
+                createdAt: note.createdAt,
+                updatedAt: note.updatedAt,
+                source: note.source,
+                company: note.company
+                  ? { id: note.company.id, name: note.company.name }
+                  : null,
+                user: note.user
+                  ? { id: note.user.id, name: note.user.name }
+                  : null,
+                features: note.features
+                  ? note.features.map((f: any) => ({
+                      id: f.id,
+                      name: f.name,
+                      importance: f.importance,
+                    }))
+                  : [],
+                owner: note.owner
+                  ? { email: note.owner.email, name: note.owner.name }
+                  : null,
+                // Explicitly omit content field
+              }));
             }
+            return response;
           },
         }),
 
