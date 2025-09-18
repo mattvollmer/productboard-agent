@@ -186,6 +186,18 @@ Response style
             let lastResp: any | undefined;
             let hasError = false;
 
+            // Normalize provided cursor: accept full URL, path, or bare token
+            const buildUrlFromCursor = (c?: string): string => {
+              if (!c) return "/features";
+              const isAbs = /^https?:\/\//i.test(c);
+              if (isAbs) return c;
+              if (c.startsWith("/")) return c;
+              return `/features?pageCursor=${encodeURIComponent(c)}`;
+            };
+
+            // Determine per-page size; PB caps at ~100
+            const perPage = Math.min(limit ?? 100, 100);
+
             const applyFilters = async (arr: any[]) => {
               let out = arr;
               const hasProductField = out.some(
@@ -280,11 +292,10 @@ Response style
             // Fetch first page (or provided cursor)
             do {
               try {
-                const resp = await pbFetchWithRetry(
-                  next ?? "/features",
-                  3,
-                  250,
-                );
+                const baseUrl = buildUrlFromCursor(next);
+                const sep = baseUrl.includes("?") ? "&" : "?";
+                const urlWithLimit = baseUrl + `${sep}pageLimit=${perPage}`;
+                const resp = await pbFetchWithRetry(urlWithLimit, 3, 250);
                 lastResp = resp;
 
                 // Validate response structure
@@ -310,7 +321,7 @@ Response style
                 // Safely extract next cursor
                 const nextCursor = resp?.links?.next;
                 if (typeof nextCursor === "string" && nextCursor.length > 0) {
-                  next = nextCursor;
+                  next = nextCursor; // can be full URL; will be normalized next loop
                 } else {
                   next = undefined; // No more pages
                 }
