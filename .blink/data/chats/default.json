@@ -175,9 +175,7 @@
                 "id": "5290ddf8-abeb-4622-89bf-3ea949e80fe7",
                 "title": "Opportunity Gap - Remote Builds / coder run / Coder Jobs",
                 "state": "unprocessed",
-                "tags": [
-                  "Vivun"
-                ],
+                "tags": ["Vivun"],
                 "createdAt": "2025-09-18T13:39:31.966311Z",
                 "updatedAt": "2025-09-18T13:39:31.966311Z",
                 "source": {
@@ -541,10 +539,7 @@
                 "id": "6ec39221-0833-4756-a2bb-f8b0549a3ce5",
                 "title": "Slack message from Anonymous ",
                 "state": "unprocessed",
-                "tags": [
-                  "vscode",
-                  "jetbrains-toolbox"
-                ],
+                "tags": ["vscode", "jetbrains-toolbox"],
                 "createdAt": "2025-09-11T13:33:08.000000Z",
                 "updatedAt": "2025-09-11T13:46:17.755308Z",
                 "source": {
@@ -726,9 +721,7 @@
                 "id": "a3391406-8b64-46e3-921b-b1e9bf5e6b47",
                 "title": "Opportunity Gap - Multiple OIDC Client Support for Machine-to-Machine Authentication",
                 "state": "processed",
-                "tags": [
-                  "Vivun"
-                ],
+                "tags": ["Vivun"],
                 "createdAt": "2025-09-04T14:39:42.749323Z",
                 "updatedAt": "2025-09-10T10:59:09.607751Z",
                 "source": {
@@ -754,9 +747,7 @@
                 "id": "28e745af-2cdb-4ca0-83f6-3cd33bd4c85b",
                 "title": "Discord message from ztlod ツ (in 'Execution order of modules')",
                 "state": "processed",
-                "tags": [
-                  "discord"
-                ],
+                "tags": ["discord"],
                 "createdAt": "2025-08-28T05:34:40.704178Z",
                 "updatedAt": "2025-09-16T14:38:08.268093Z",
                 "source": {
@@ -850,9 +841,7 @@
                 "id": "19c4c51c-0c7e-413b-8e85-edf3deec4fcb",
                 "title": "Discord message from Tom (in 'coder_agent.main.token is not valid in windows workspace')",
                 "state": "processed",
-                "tags": [
-                  "discord"
-                ],
+                "tags": ["discord"],
                 "createdAt": "2025-08-18T15:50:05.288074Z",
                 "updatedAt": "2025-09-10T11:20:51.436946Z",
                 "source": {
@@ -875,9 +864,7 @@
                 "id": "986e9114-dd45-42fb-99e0-6eb634ab8638",
                 "title": "Discord message from anubis (in 'Multiple ssh key')",
                 "state": "processed",
-                "tags": [
-                  "discord"
-                ],
+                "tags": ["discord"],
                 "createdAt": "2025-08-11T16:43:45.697432Z",
                 "updatedAt": "2025-09-10T11:21:40.239252Z",
                 "source": {
@@ -973,9 +960,7 @@
                 "id": "abcd14a4-01f7-4ecb-a5b9-1eaa90b4ccb9",
                 "title": "Discord message from GR8B8 (in 'VS Code Desktop pre-install extensions')",
                 "state": "processed",
-                "tags": [
-                  "discord"
-                ],
+                "tags": ["discord"],
                 "createdAt": "2025-07-30T05:54:08.207459Z",
                 "updatedAt": "2025-09-10T11:26:09.545682Z",
                 "source": {
@@ -1003,9 +988,7 @@
                 "id": "e53ea049-a3a9-47f7-84e1-922be3d458ad",
                 "title": "Opportunity Gap - Enhanced Windows Support",
                 "state": "processed",
-                "tags": [
-                  "Vivun"
-                ],
+                "tags": ["Vivun"],
                 "createdAt": "2025-07-29T17:50:04.741683Z",
                 "updatedAt": "2025-09-10T12:04:28.114224Z",
                 "source": {
@@ -1031,9 +1014,7 @@
                 "id": "78846a73-ddf4-43e4-b090-696a5fe1fa03",
                 "title": "Opportunity Gap - SSH Keys",
                 "state": "unprocessed",
-                "tags": [
-                  "Vivun"
-                ],
+                "tags": ["Vivun"],
                 "createdAt": "2025-07-29T17:26:16.727065Z",
                 "updatedAt": "2025-09-08T11:24:29.440527Z",
                 "source": {
@@ -1054,9 +1035,7 @@
                 "id": "91c91cb1-7ae9-4615-8e62-7c8ddd0f5532",
                 "title": "Opportunity Gap - CLI and Coder Connect Auth Sync",
                 "state": "processed",
-                "tags": [
-                  "Vivun"
-                ],
+                "tags": ["Vivun"],
                 "createdAt": "2025-07-24T17:24:39.605655Z",
                 "updatedAt": "2025-09-10T12:09:36.335271Z",
                 "source": {
@@ -1086,9 +1065,7 @@
                 "id": "fca13202-c5f8-4535-bc17-bfcfc0d11834",
                 "title": "Opportunity Gap - Offline Mode",
                 "state": "unprocessed",
-                "tags": [
-                  "Vivun"
-                ],
+                "tags": ["Vivun"],
                 "createdAt": "2025-07-24T17:18:26.404835Z",
                 "updatedAt": "2025-09-08T11:26:42.373192Z",
                 "source": {
@@ -1114,9 +1091,7 @@
                 "id": "b1a86c99-a752-41f6-9639-58222e63e1ad",
                 "title": "Opportunity Gap - SSH Keys",
                 "state": "processed",
-                "tags": [
-                  "Vivun"
-                ],
+                "tags": ["Vivun"],
                 "createdAt": "2025-07-24T17:15:36.565210Z",
                 "updatedAt": "2025-09-10T12:12:12.762727Z",
                 "source": {
@@ -1142,9 +1117,7 @@
                 "id": "2146b07a-20f8-4c01-9f8c-5cfd9c3d23f8",
                 "title": "Opportunity Gap - SSH Keys",
                 "state": "processed",
-                "tags": [
-                  "Vivun"
-                ],
+                "tags": ["Vivun"],
                 "createdAt": "2025-07-24T17:15:36.115255Z",
                 "updatedAt": "2025-09-10T12:13:12.588892Z",
                 "source": {
@@ -1168,9 +1141,7 @@
                 "id": "841ae4a5-ede0-4218-8471-efe93f07c303",
                 "title": "Opportunity Gap - Coder Red Hat Certified OpenShift Operator",
                 "state": "unprocessed",
-                "tags": [
-                  "Vivun"
-                ],
+                "tags": ["Vivun"],
                 "createdAt": "2025-07-22T17:24:19.067914Z",
                 "updatedAt": "2025-09-08T11:28:56.189336Z",
                 "source": {
@@ -1196,9 +1167,7 @@
                 "id": "7bc6ef36-f593-4589-a6dc-a6c1c79d3df1",
                 "title": "Opportunity Gap - Coder Red Hat Certified OpenShift Operator",
                 "state": "unprocessed",
-                "tags": [
-                  "Vivun"
-                ],
+                "tags": ["Vivun"],
                 "createdAt": "2025-07-22T17:24:18.733240Z",
                 "updatedAt": "2025-09-08T11:29:29.310896Z",
                 "source": {
@@ -1224,9 +1193,7 @@
                 "id": "7a2c8ad3-fca8-4121-97b1-120aa4562b36",
                 "title": "Account Gap - Coder Red Hat Certified OpenShift Operator",
                 "state": "unprocessed",
-                "tags": [
-                  "Vivun"
-                ],
+                "tags": ["Vivun"],
                 "createdAt": "2025-07-22T17:24:18.309399Z",
                 "updatedAt": "2025-09-08T11:29:49.034508Z",
                 "source": {
@@ -1290,9 +1257,7 @@
                 "id": "99de0917-8dea-485d-af68-d7599cb1da4a",
                 "title": "Discord message from arqbyte. (in 'general')",
                 "state": "processed",
-                "tags": [
-                  "discord"
-                ],
+                "tags": ["discord"],
                 "createdAt": "2025-07-17T13:05:02.137649Z",
                 "updatedAt": "2025-09-08T12:00:37.280403Z",
                 "source": {
@@ -1343,10 +1308,7 @@
                 "id": "488120e1-568a-48d0-80a1-d596519a43dc",
                 "title": "Account Gap - SSH Keys",
                 "state": "processed",
-                "tags": [
-                  "Vivun",
-                  "Vivun - To Delete"
-                ],
+                "tags": ["Vivun", "Vivun - To Delete"],
                 "createdAt": "2025-07-10T17:01:48.501969Z",
                 "updatedAt": "2025-09-10T12:13:16.242837Z",
                 "source": {
@@ -1365,10 +1327,7 @@
                 "id": "9cb52748-fa43-469b-ab7a-2ce842d39d9b",
                 "title": "Opportunity Gap - SSH Keys",
                 "state": "processed",
-                "tags": [
-                  "Vivun",
-                  "Vivun - To Delete"
-                ],
+                "tags": ["Vivun", "Vivun - To Delete"],
                 "createdAt": "2025-07-10T16:42:03.770964Z",
                 "updatedAt": "2025-09-10T12:13:56.172031Z",
                 "source": {
@@ -1394,10 +1353,7 @@
                 "id": "8268540c-46b5-44c3-8f10-6d02afcca600",
                 "title": "Opportunity Gap - SSH Keys",
                 "state": "processed",
-                "tags": [
-                  "Vivun",
-                  "Vivun - To Delete"
-                ],
+                "tags": ["Vivun", "Vivun - To Delete"],
                 "createdAt": "2025-07-10T16:42:03.282286Z",
                 "updatedAt": "2025-09-10T12:14:26.578228Z",
                 "source": {
@@ -1592,9 +1548,7 @@
               "state": "unprocessed",
               "displayUrl": "https://coder.productboard.com/all-notes/notes/50821560",
               "externalDisplayUrl": null,
-              "tags": [
-                "Vivun"
-              ],
+              "tags": ["Vivun"],
               "company": null,
               "features": [],
               "followers": [],
