@@ -128,42 +128,6 @@ Output format
       messages: convertToModelMessages(messages),
       tools: {
         ...slackbot.tools({ messages }),
-        slack_auto_react: tool({
-          description:
-            "Automatically react to the latest incoming Slack message with an emoji, or remove it after responding.",
-          inputSchema: z.object({
-            reaction: z
-              .string()
-              .describe(
-                'Use "thinking_face" to add :thinking_face:. Use "remove" to remove the reaction.',
-              ),
-          }),
-          execute: async ({ reaction }) => {
-            const metadata = await slackbot.findLastMessageMetadata(messages);
-            if (!metadata) {
-              throw new Error("This chat isn't from Slack!");
-            }
-            const api = await slackbot.createClient(metadata);
-            const name =
-              reaction === "remove"
-                ? "thinking_face"
-                : reaction.replace(/^:|:$/g, "");
-            if (reaction === "remove") {
-              await api.reactions.remove({
-                channel: metadata.channel,
-                timestamp: metadata.ts,
-                name,
-              });
-            } else {
-              await api.reactions.add({
-                channel: metadata.channel,
-                timestamp: metadata.ts,
-                name,
-              });
-            }
-            return { success: true };
-          },
-        }),
         // Date/Time awareness
         current_date: tool({
           description:
