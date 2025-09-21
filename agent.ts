@@ -2,6 +2,7 @@ import { streamText, tool } from "ai";
 import * as blink from "blink";
 import { z } from "zod";
 import { convertToModelMessages } from "ai";
+import * as slackbot from "@blink-sdk/slackbot";
 
 const PB_BASE = "https://api.productboard.com";
 
@@ -79,6 +80,9 @@ export default blink.agent({
 
 Operate strictly via the provided tools to read Productboard data. Do not invent endpoints or parameters.
 
+SLACK REACTIONS:
+- When chatting in Slack, ALWAYS first call slack_auto_react with reaction "thinking_face" to add an :thinking_face: reaction to the latest incoming message before doing anything else. ALWAYS remove the emoji after you send your response by calling slack_auto_react with reaction "remove".
+
 TEMPORAL AWARENESS:
 - ALWAYS call the current_date tool when users mention time-relative terms like "next quarter", "upcoming", "past few weeks", "this month", "Q1", "Q2", etc.
 - Use the date context to properly interpret and filter queries about timelines and roadmaps
@@ -123,6 +127,7 @@ Output format
 `,
       messages: convertToModelMessages(messages),
       tools: {
+        ...slackbot.tools({ messages }),
         // Date/Time awareness
         current_date: tool({
           description:
@@ -949,5 +954,13 @@ Output format
         }),
       },
     });
+  },
+  async webhook(request) {
+    if (slackbot.isOAuthRequest(request)) {
+      return slackbot.handleOAuthRequest(request);
+    }
+    if (slackbot.isWebhook(request)) {
+      return slackbot.handleWebhook(request);
+    }
   },
 });
