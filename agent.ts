@@ -41,7 +41,7 @@ async function getDefaultCoderProductId(): Promise<string> {
   const data = await pbFetch("/products");
   const products = Array.isArray(data?.data) ? data.data : [];
   const coder = products.find(
-    (p: any) => (p?.name || "").toLowerCase() === "coder",
+    (p: any) => (p?.name || "").toLowerCase() === "coder"
   );
   if (!coder)
     throw new Error("Default product 'coder' not found in Productboard");
@@ -57,7 +57,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 async function pbFetchWithRetry(
   input: string | URL,
   attempts = 3,
-  baseDelayMs = 250,
+  baseDelayMs = 250
 ) {
   let lastErr: any;
   for (let i = 0; i < attempts; i++) {
@@ -80,8 +80,23 @@ export default blink.agent({
 
 Operate strictly via the provided tools to read Productboard data. Do not invent endpoints or parameters.
 
-SLACK REACTIONS:
-- When chatting in Slack, ALWAYS first call slack_auto_react with reaction "thinking_face" to add an :thinking_face: reaction to the latest incoming message before doing anything else. ALWAYS remove the emoji after you send your response by calling slack_auto_react with reaction "remove".
+## Slack-Specific Behavior:
+When chatting in Slack channels:
+
+### Interaction Protocol:
+- ALWAYS first call slackbot_react_to_message with reaction "thinking_face" to add an :thinking_face: reaction to the latest incoming message before doing anything else
+- ALWAYS remove the emoji after you send your response by calling slackbot_react_to_message with reaction "thinking_face" and remove_reaction: true
+
+### Communication Style:
+- Keep responses concise and to the point to respect users' time
+- Aim for clarity and brevity over comprehensive explanations
+- Use bullet points or numbered lists for easy reading when listing items
+- Never include emojis in responses unless explicitly asked to do so
+
+### Formatting Guidelines:
+- ALWAYS format URLs as clickable links using the <url|text> format
+- Don't include markdown headings (#, ##, etc); use *bold text* instead
+- Use standard Slack formatting conventions
 
 TEMPORAL AWARENESS:
 - ALWAYS call the current_date tool when users mention time-relative terms like "next quarter", "upcoming", "past few weeks", "this month", "Q1", "Q2", etc.
@@ -145,7 +160,7 @@ Output format
             const quarterStart = new Date(
               currentYear,
               quarterStartMonth - 1,
-              1,
+              1
             );
             const quarterEnd = new Date(currentYear, quarterEndMonth, 0); // Last day of quarter
 
@@ -158,12 +173,12 @@ Output format
             const nextQuarterStart = new Date(
               nextQuarterYear,
               nextQuarterStartMonth - 1,
-              1,
+              1
             );
             const nextQuarterEnd = new Date(
               nextQuarterYear,
               nextQuarterEndMonth,
-              0,
+              0
             );
 
             return {
@@ -181,7 +196,7 @@ Output format
               day_of_week: now.toLocaleDateString("en-US", { weekday: "long" }),
               week_of_year: Math.ceil(
                 (now.getTime() - new Date(currentYear, 0, 1).getTime()) /
-                  (7 * 24 * 60 * 60 * 1000),
+                  (7 * 24 * 60 * 60 * 1000)
               ),
             };
           },
@@ -221,13 +236,13 @@ Output format
               .boolean()
               .optional()
               .describe(
-                "Filter companies by whether they have notes (true) or not (false)",
+                "Filter companies by whether they have notes (true) or not (false)"
               ),
             featureId: z
               .string()
               .optional()
               .describe(
-                "Filter companies associated with a specific feature ID",
+                "Filter companies associated with a specific feature ID"
               ),
           }),
           execute: async ({
@@ -278,7 +293,7 @@ Output format
                   "createdAt",
                   "updatedAt",
                   "all",
-                ]),
+                ])
               )
               .optional(),
           }),
@@ -307,12 +322,12 @@ Output format
                 ? statusResp.data
                 : [];
               const wanted = new Set(
-                statusNames.map((s: string) => s.toLowerCase()),
+                statusNames.map((s: string) => s.toLowerCase())
               );
               resolvedStatusIds = allStatuses
                 .filter(
                   (st: any) =>
-                    st?.name && wanted.has(String(st.name).toLowerCase()),
+                    st?.name && wanted.has(String(st.name).toLowerCase())
                 )
                 .map((st: any) => String(st.id));
             }
@@ -352,7 +367,7 @@ Output format
 
               // Only apply product filtering client-side (not supported server-side)
               const hasProductField = out.some(
-                (f: any) => f && f.product && f.product.id,
+                (f: any) => f && f.product && f.product.id
               );
               if (hasProductField) {
                 const targetProductId =
@@ -361,7 +376,7 @@ Output format
                     (defaultCoderProductId = await getDefaultCoderProductId()));
                 if (targetProductId) {
                   out = out.filter(
-                    (f: any) => f?.product?.id === targetProductId,
+                    (f: any) => f?.product?.id === targetProductId
                   );
                 }
               }
@@ -374,7 +389,7 @@ Output format
                 // (Multiple status IDs aren't sent to server due to API validation errors)
                 const set = new Set(resolvedStatusIds);
                 out = out.filter(
-                  (f: any) => f?.status?.id && set.has(f.status.id),
+                  (f: any) => f?.status?.id && set.has(f.status.id)
                 );
               }
               // Note: If we used server-side status filtering on the initial call (single status ID),
@@ -459,7 +474,7 @@ Output format
                   hasError = true;
                   console.warn(
                     `Invalid response structure from ProductBoard API:`,
-                    resp,
+                    resp
                   );
                   break;
                 }
@@ -598,7 +613,9 @@ Output format
                 const isAbs = /^https?:\/\//i.test(c);
                 if (isAbs) return c;
                 if (c.startsWith("/")) return c;
-                return `/feature-release-assignments?pageCursor=${encodeURIComponent(c)}`;
+                return `/feature-release-assignments?pageCursor=${encodeURIComponent(
+                  c
+                )}`;
               }
 
               // Build base URL with query parameters
@@ -608,7 +625,9 @@ Output format
               if (releaseState) params.set("release.state", releaseState);
 
               const queryString = params.toString();
-              return `/feature-release-assignments${queryString ? `?${queryString}` : ""}`;
+              return `/feature-release-assignments${
+                queryString ? `?${queryString}` : ""
+              }`;
             };
 
             const shouldContinue = () => {
@@ -634,7 +653,7 @@ Output format
                   hasError = true;
                   console.warn(
                     `Invalid response structure from ProductBoard API:`,
-                    resp,
+                    resp
                   );
                   break;
                 }
@@ -716,13 +735,13 @@ Output format
               .string()
               .optional()
               .describe(
-                "Comma-separated list of tags (notes with any of these tags)",
+                "Comma-separated list of tags (notes with any of these tags)"
               ),
             allTags: z
               .string()
               .optional()
               .describe(
-                "Comma-separated list of tags (notes with all of these tags)",
+                "Comma-separated list of tags (notes with all of these tags)"
               ),
             updatedFrom: z
               .string()
@@ -849,7 +868,7 @@ Output format
                   "dropdown",
                   "multi-dropdown",
                   "member",
-                ]),
+                ])
               )
               .optional(),
             cursor: z.string().optional(),
@@ -901,7 +920,7 @@ Output format
                   "dropdown",
                   "multi-dropdown",
                   "member",
-                ]),
+                ])
               )
               .optional(),
             cursor: z.string().optional(),
@@ -939,7 +958,7 @@ Output format
             // Add hierarchyEntity.id filters if provided
             if (entityIds && entityIds.length > 0) {
               entityIds.forEach((id) =>
-                params.append("hierarchyEntity.id", id),
+                params.append("hierarchyEntity.id", id)
               );
             }
 
