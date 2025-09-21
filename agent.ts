@@ -73,10 +73,10 @@ async function pbFetchWithRetry(
 
 // Platform detection and prompt generation
 const detectPlatform = (messages: any[]) => {
-  return slackbot.findLastMessageMetadata(messages) ? 'slack' : 'web';
+  return slackbot.findLastMessageMetadata(messages) ? "slack" : "web";
 };
 
-const createSystemPrompt = (platform: 'slack' | 'web') => {
+const createSystemPrompt = (platform: "slack" | "web") => {
   const basePrompt = `You are the Productboard data assistant for Coder's GTM and product teams.
 
 Operate strictly via the provided tools to read Productboard data. Do not invent endpoints or parameters.
@@ -121,7 +121,7 @@ Output format
 - Do not expose chain-of-thought; summarize actions taken only when helpful.
 - No notifications or scheduling yet; read-only operations only.`;
 
-  if (platform === 'slack') {
+  if (platform === "slack") {
     return `${basePrompt}
 
 ## Slack-Specific Behavior:
@@ -164,7 +164,6 @@ When chatting in Slack channels:
 
 ### Web Formatting Rules:
 - Your responses use GitHub-flavored Markdown rendered with CommonMark specification
-- Never use headings (# ## ###), bold text (**text**), or other markdown formatting unless explicitly requested
 - Code blocks must be rendered with \`\`\` and the language name
 - Use standard markdown conventions for links: [text](url)
 - Mermaid diagrams can be used for visualization when helpful for roadmaps or feature relationships`;
@@ -175,7 +174,7 @@ export default blink.agent({
   async sendMessages({ messages }) {
     const platform = detectPlatform(messages);
     const systemPrompt = createSystemPrompt(platform);
-    
+
     return streamText({
       // model: "openai/gpt-5-mini",
       model: "anthropic/claude-sonnet-4",
