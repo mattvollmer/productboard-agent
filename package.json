@@ -4,13 +4,14 @@
   "type": "module",
   "private": true,
   "dependencies": {
-    "@blink-sdk/slackbot": "^0.0.5",
+    "@blink-sdk/slackbot": "^0.0.7",
     "ai": "^5.0.45",
     "blink": "^0.1.32",
     "esbuild": "^0.25.9",
     "zod": "^4.1.9"
   },
   "devDependencies": {
-    "@types/node": "^24.5.1"
+    "@types/node": "^24.5.1",
+    "@blink-sdk/model-intent": "^0.0.3"
   }
 }

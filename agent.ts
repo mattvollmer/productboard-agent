@@ -3,6 +3,7 @@ import * as blink from "blink";
 import { z } from "zod";
 import { convertToModelMessages } from "ai";
 import * as slackbot from "@blink-sdk/slackbot";
+import withModelIntent from "@blink-sdk/model-intent";
 
 const PB_BASE = "https://api.productboard.com";
 
@@ -41,7 +42,7 @@ async function getDefaultCoderProductId(): Promise<string> {
   const data = await pbFetch("/products");
   const products = Array.isArray(data?.data) ? data.data : [];
   const coder = products.find(
-    (p: any) => (p?.name || "").toLowerCase() === "coder"
+    (p: any) => (p?.name || "").toLowerCase() === "coder",
   );
   if (!coder)
     throw new Error("Default product 'coder' not found in Productboard");
@@ -57,7 +58,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 async function pbFetchWithRetry(
   input: string | URL,
   attempts = 3,
-  baseDelayMs = 250
+  baseDelayMs = 250,
 ) {
   let lastErr: any;
   for (let i = 0; i < attempts; i++) {
@@ -171,7 +172,7 @@ When chatting in Slack channels:
 };
 
 export default blink.agent({
-  async sendMessages({ messages }) {
+  async sendMessages({ messages, abortSignal }) {
     const platform = detectPlatform(messages);
     const systemPrompt = createSystemPrompt(platform);
 
@@ -199,7 +200,7 @@ export default blink.agent({
             const quarterStart = new Date(
               currentYear,
               quarterStartMonth - 1,
-              1
+              1,
             );
             const quarterEnd = new Date(currentYear, quarterEndMonth, 0); // Last day of quarter
 
@@ -212,12 +213,12 @@ export default blink.agent({
             const nextQuarterStart = new Date(
               nextQuarterYear,
               nextQuarterStartMonth - 1,
-              1
+              1,
             );
             const nextQuarterEnd = new Date(
               nextQuarterYear,
               nextQuarterEndMonth,
-              0
+              0,
             );
 
             return {
@@ -235,7 +236,7 @@ export default blink.agent({
               day_of_week: now.toLocaleDateString("en-US", { weekday: "long" }),
               week_of_year: Math.ceil(
                 (now.getTime() - new Date(currentYear, 0, 1).getTime()) /
-                  (7 * 24 * 60 * 60 * 1000)
+                  (7 * 24 * 60 * 60 * 1000),
               ),
             };
           },
@@ -275,13 +276,13 @@ export default blink.agent({
               .boolean()
               .optional()
               .describe(
-                "Filter companies by whether they have notes (true) or not (false)"
+                "Filter companies by whether they have notes (true) or not (false)",
               ),
             featureId: z
               .string()
               .optional()
               .describe(
-                "Filter companies associated with a specific feature ID"
+                "Filter companies associated with a specific feature ID",
               ),
           }),
           execute: async ({
@@ -332,7 +333,7 @@ export default blink.agent({
                   "createdAt",
                   "updatedAt",
                   "all",
-                ])
+                ]),
               )
               .optional(),
           }),
@@ -361,12 +362,12 @@ export default blink.agent({
                 ? statusResp.data
                 : [];
               const wanted = new Set(
-                statusNames.map((s: string) => s.toLowerCase())
+                statusNames.map((s: string) => s.toLowerCase()),
               );
               resolvedStatusIds = allStatuses
                 .filter(
                   (st: any) =>
-                    st?.name && wanted.has(String(st.name).toLowerCase())
+                    st?.name && wanted.has(String(st.name).toLowerCase()),
                 )
                 .map((st: any) => String(st.id));
             }
@@ -406,7 +407,7 @@ export default blink.agent({
 
               // Only apply product filtering client-side (not supported server-side)
               const hasProductField = out.some(
-                (f: any) => f && f.product && f.product.id
+                (f: any) => f && f.product && f.product.id,
               );
               if (hasProductField) {
                 const targetProductId =
@@ -415,7 +416,7 @@ export default blink.agent({
                     (defaultCoderProductId = await getDefaultCoderProductId()));
                 if (targetProductId) {
                   out = out.filter(
-                    (f: any) => f?.product?.id === targetProductId
+                    (f: any) => f?.product?.id === targetProductId,
                   );
                 }
               }
@@ -428,7 +429,7 @@ export default blink.agent({
                 // (Multiple status IDs aren't sent to server due to API validation errors)
                 const set = new Set(resolvedStatusIds);
                 out = out.filter(
-                  (f: any) => f?.status?.id && set.has(f.status.id)
+                  (f: any) => f?.status?.id && set.has(f.status.id),
                 );
               }
               // Note: If we used server-side status filtering on the initial call (single status ID),
@@ -513,7 +514,7 @@ export default blink.agent({
                   hasError = true;
                   console.warn(
                     `Invalid response structure from ProductBoard API:`,
-                    resp
+                    resp,
                   );
                   break;
                 }
@@ -653,7 +654,7 @@ export default blink.agent({
                 if (isAbs) return c;
                 if (c.startsWith("/")) return c;
                 return `/feature-release-assignments?pageCursor=${encodeURIComponent(
-                  c
+                  c,
                 )}`;
               }
 
@@ -692,7 +693,7 @@ export default blink.agent({
                   hasError = true;
                   console.warn(
                     `Invalid response structure from ProductBoard API:`,
-                    resp
+                    resp,
                   );
                   break;
                 }
@@ -774,13 +775,13 @@ export default blink.agent({
               .string()
               .optional()
               .describe(
-                "Comma-separated list of tags (notes with any of these tags)"
+                "Comma-separated list of tags (notes with any of these tags)",
               ),
             allTags: z
               .string()
               .optional()
               .describe(
-                "Comma-separated list of tags (notes with all of these tags)"
+                "Comma-separated list of tags (notes with all of these tags)",
               ),
             updatedFrom: z
               .string()
@@ -907,7 +908,7 @@ export default blink.agent({
                   "dropdown",
                   "multi-dropdown",
                   "member",
-                ])
+                ]),
               )
               .optional(),
             cursor: z.string().optional(),
@@ -959,7 +960,7 @@ export default blink.agent({
                   "dropdown",
                   "multi-dropdown",
                   "member",
-                ])
+                ]),
               )
               .optional(),
             cursor: z.string().optional(),
@@ -997,7 +998,7 @@ export default blink.agent({
             // Add hierarchyEntity.id filters if provided
             if (entityIds && entityIds.length > 0) {
               entityIds.forEach((id) =>
-                params.append("hierarchyEntity.id", id)
+                params.append("hierarchyEntity.id", id),
               );
             }
 
