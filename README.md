@@ -1,55 +1,63 @@
 # Productboard Agent
 
-A comprehensive product management agent that provides seamless integration with Productboard's API for strategic product planning and customer insights.
+A product management agent that integrates with Productboard's API for accessing product data, features, releases, and customer insights.
+
+## Tools
+
+- `pb_list_products` - List all products in the Productboard workspace
+- `pb_get_product` - Get detailed information about a specific product
+- `pb_list_features` - List features with filtering by product, status, and release
+- `pb_get_feature` - Get detailed information about a specific feature
+- `pb_list_releases` - List product releases with timeline information
+- `pb_get_release` - Get detailed information about a specific release
+- `pb_list_statuses` - List all available feature statuses
+- `pb_list_objectives` - List product objectives and key results
+- `pb_list_companies` - List companies with customer feedback data
+- `current_date` - Get current date and time with quarter calculations
 
 ## Core Capabilities
 
-### Product Management
-- **Productboard API Integration**: Complete access to products, features, releases, and roadmap data
-- **Feature Lifecycle Tracking**: Monitor feature statuses, priorities, and development progress
-- **Release Management**: Comprehensive release planning with timeline and milestone tracking
-- **Customer Intelligence**: Deep insights into customer feedback, companies, and user insights
+### Product Data Access
+- Productboard REST API v1 integration with Bearer token authentication
+- Access to products, features, releases, objectives, and customer data
+- Automatic UUID-to-name conversion for readable output
+- Cursor-based pagination for large datasets
 
-### Temporal Intelligence
-- **Quarter-Aware Planning**: Automatic resolution of "next quarter", "upcoming", and time-based queries
-- **Roadmap Timelines**: Smart date calculations for product planning and milestone tracking
-- **Strategic Context**: Understanding of current vs future planning horizons
+### Feature Management
+- Feature lifecycle tracking with status monitoring
+- Release assignment and timeline management
+- Priority and effort estimation data
+- Custom field access for extended metadata
 
-### Data Operations
-- **User-Friendly Presentation**: Automatic conversion of UUIDs to human-readable names and descriptions
-- **Smart Defaults**: Default "coder" product scoping with flexible multi-product support
-- **Retry Logic**: Robust API interactions with automatic retry and error handling
-- **Pagination Support**: Efficient handling of large datasets with cursor-based pagination
+### Customer Intelligence
+- Company and customer feedback data
+- User insight tracking and analysis
+- Feature request correlation with customer data
+- Feedback sentiment and priority information
+
+### Date and Time Context
+- Quarter-aware planning with automatic date resolution
+- Roadmap timeline calculations
+- Support for relative time queries ("next quarter", "upcoming")
 
 ### Platform Integration
-- **Native Slack Support**: Full Slack integration with emoji reactions and threaded conversations
-- **Multi-Platform**: Optimized for both Slack channels and web interfaces
-- **Real-time Updates**: Live status indicators during API operations
-
-## Key Features
-
-- **Complete Product Catalog**: Access to all products, features, releases, and objectives
-- **Status Management**: Real-time feature status tracking and workflow management
-- **Customer Insights**: Direct access to customer feedback and company data
-- **Smart Filtering**: Advanced filtering by status, release, timeline, and custom criteria
-- **Roadmap Intelligence**: Strategic roadmap analysis with priority and timeline insights
-- **Executive Reporting**: Clean, business-friendly data presentation without technical jargon
+- Native Slack integration with emoji reactions and threading
+- Multi-platform support for Slack channels and web interfaces
+- Real-time status updates during API operations
 
 ## Use Cases
 
-- Strategic product roadmap planning
+- Product roadmap planning and analysis
 - Feature prioritization and status tracking
-- Customer feedback analysis and insights
+- Customer feedback analysis
 - Release planning and milestone management
-- Stakeholder communication and reporting
-- Competitive analysis and market positioning
+- Stakeholder reporting and communication
+- Competitive analysis and market research
 
-## Technical Stack
+## Technical Details
 
-- **Runtime**: Blink AI Agent Framework
-- **API**: Productboard REST API v1 with Bearer token authentication
-- **Error Handling**: Robust retry logic with exponential backoff
-- **Data Processing**: Smart UUID-to-name conversion for user-friendly output
-- **Platform**: Native Slack integration with markdown support
-
-This agent bridges the gap between product strategy and execution, providing teams with intelligent access to their Productboard data for informed decision-making.
+- **API**: Productboard REST API v1 with Bearer authentication
+- **Error Handling**: Retry logic with exponential backoff (3 attempts, 250ms base delay)
+- **Data Processing**: Automatic UUID conversion to human-readable names
+- **Default Scope**: "coder" product with flexible multi-product support
+- **Pagination**: Cursor-based pagination with configurable limits
